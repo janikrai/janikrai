@@ -144,50 +144,54 @@ export default function App() {
       <nav className={`fixed top-0 left-0 z-[80] w-full px-6 md:px-10 py-4 md:py-6 bg-transparent transition-opacity duration-300 hidden md:flex ${selectedProject ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <div className="flex items-start justify-between w-full">
           {/* Categories */}
-          <div className={`flex gap-6 md:gap-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-            {CATEGORIES.map((cat) => (
+          <div className='flex gap-6 md:gap-10'>
+            {isAboutOpen ? (
               <StrikeButton
-                key={cat}
-                onClick={() => setActiveCategory(cat as Category)}
-                className={`text-[16px] font-medium uppercase tracking-widest transition-opacity hover:opacity-100 ${
-                  activeCategory === cat ? 'opacity-100' : 'opacity-30'
-                }`}
+                onClick={() => setIsAboutOpen(false)}
+                className='text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
               >
-                {cat}
+                Close
               </StrikeButton>
-            ))}
+            ) : (
+              <>
+                {CATEGORIES.map((cat) => (
+                  <StrikeButton
+                    key={cat}
+                    onClick={() => setActiveCategory(cat as Category)}
+                    className={`text-[16px] font-medium uppercase tracking-widest transition-opacity hover:opacity-100 ${
+                      activeCategory === cat ? 'opacity-100' : 'opacity-75'
+                    }`}
+                  >
+                    {cat}
+                  </StrikeButton>
+                ))}
+                <StrikeButton
+                  onClick={() => setIsAboutOpen(true)}
+                  className='text-[16px] font-medium uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
+                >
+                  Info
+                </StrikeButton>
+              </>
+            )}
           </div>
 
           {/* Name */}
-          <div className="block" style={{ marginLeft: 'auto', marginRight: 'auto', paddingRight: '8%' }}>
-            <button 
+          <div className='absolute left-1/2 -translate-x-1/2 hidden md:block'>
+            <button
               onClick={() => {
                 setActiveCategory('Selected');
                 setSelectedProject(null);
                 setIsAboutOpen(false);
               }}
-              className="text-[16px] font-bold uppercase tracking-[0.3em]"
+              className='text-[16px] font-bold uppercase tracking-[0.3em]'
             >
               Janik Rai
             </button>
           </div>
 
           {/* Info Toggle / Close */}
-          {isAboutOpen ? (
-            <StrikeButton
-              onClick={() => setIsAboutOpen(false)}
-              className="text-[16px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-all"
-            >
-              Close
-            </StrikeButton>
-          ) : (
-            <StrikeButton
-              onClick={() => setIsAboutOpen(true)}
-              className="text-[16px] font-medium uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity"
-            >
-              Info
-            </StrikeButton>
-          )}
+          <div className='min-w-[4rem] flex justify-end'>
+          </div>
         </div>
       </nav>
 
@@ -209,7 +213,7 @@ export default function App() {
               key={cat}
               onClick={() => setActiveCategory(cat as Category)}
               className={`text-[14px] uppercase tracking-widest transition-opacity ${
-                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-30'
+                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-50'
               }`}
             >
               {cat}
@@ -217,7 +221,7 @@ export default function App() {
           ))}
           <StrikeButton
             onClick={() => setIsAboutOpen(true)}
-            className='text-[14px] uppercase tracking-widest opacity-30'
+            className='text-[14px] uppercase tracking-widest opacity-50'
           >
             Info
           </StrikeButton>
@@ -246,8 +250,8 @@ export default function App() {
                 <div className="grid items-baseline" style={{ gridTemplateColumns: '2rem minmax(12rem, auto) 1rem minmax(8rem, auto)' }}>
                   <span className={`text-[14px] font-mono transition-all duration-300 ${
                     hoveredProject?.id === project.id 
-                      ? 'text-ink/60 line-through decoration-ink/60' 
-                      : 'text-ink/30'
+                      ? 'text-ink/75 line-through decoration-ink/75' 
+                      : 'text-ink/50'
                   }`}>
                     {(index + 1).toString().padStart(2, '0')}
                   </span>
@@ -255,7 +259,7 @@ export default function App() {
                   <h2 className={`text-[16px] uppercase tracking-[0.1em] transition-all duration-300 ${
                     hoveredProject?.id === project.id 
                       ? 'text-ink font-bold' 
-                      : 'text-ink/60 group-hover:text-ink/60 font-bold'
+                      : 'text-ink/75 group-hover:text-ink/75 font-bold'
                   }`}>
                     {project.name}
                   </h2>
@@ -273,8 +277,8 @@ export default function App() {
 
                   <span className={`text-[15px] uppercase tracking-[0.1em] transition-all duration-300 ${
                     hoveredProject?.id === project.id 
-                      ? 'text-ink/60' 
-                      : 'text-ink/30 group-hover:text-ink/60'
+                      ? 'text-ink/75' 
+                      : 'text-ink/50 group-hover:text-ink/75'
                   }`}>
                     {project.client}
                   </span>
@@ -301,9 +305,9 @@ export default function App() {
                       className='absolute inset-0 w-full h-full object-cover'
                       loading='lazy'
                     />
-                    <div className='absolute inset-0 bg-black/40' />
+                    <div className='absolute inset-0 bg-black/55' />
                     <div className='absolute inset-0 flex flex-col items-start justify-end p-2'>
-                      <p className='text-[9px] uppercase tracking-[0.2em] opacity-60 leading-none mb-1'>{project.client}</p>
+                      <p className='text-[9px] uppercase tracking-[0.2em] opacity-75 leading-none mb-1'>{project.client}</p>
                       <h3 className='text-[11px] uppercase tracking-[0.1em] font-bold leading-tight'>{project.name}</h3>
                     </div>
                   </div>
@@ -328,14 +332,14 @@ export default function App() {
                     muted
                     loop
                     playsInline
-                    className='absolute inset-0 w-full h-full object-cover opacity-60'
+                    className='absolute inset-0 w-full h-full object-cover opacity-75'
                   />
-                  <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20' />
+                  <div className='absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/40' />
                   <div
                     className='absolute inset-0 flex flex-col items-center justify-center px-8'
                     onClick={() => handleProjectClick(project)}
                   >
-                    <p className='text-[11px] uppercase tracking-[0.3em] opacity-30 mb-3'>{project.client}</p>
+                    <p className='text-[11px] uppercase tracking-[0.3em] opacity-50 mb-3'>{project.client}</p>
                     <h2 className='text-xl uppercase tracking-[0.15em] font-bold text-center'>{project.name}</h2>
                   </div>
                 </div>
@@ -345,7 +349,7 @@ export default function App() {
                   <motion.div
                     animate={{ y: [0, 6, 0] }}
                     transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-                    className='flex flex-col items-center gap-[3px] opacity-30'
+                    className='flex flex-col items-center gap-[3px] opacity-50'
                   >
                     <div className='w-[1px] h-4 bg-current' />
                     <div className='w-1.5 h-1.5 rounded-full bg-current' />
@@ -367,9 +371,9 @@ export default function App() {
           muted
           loop
           playsInline
-          style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent opacity-30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent opacity-50" />
       </div>
 
       {/* Award Indicator (Bottom Right) */}
@@ -377,7 +381,16 @@ export default function App() {
         <AnimatePresence>
           <div className='flex gap-3 items-end' style={{ flexWrap: 'wrap' }}>
             {hoveredProject?.laurelUrls?.map((url, i) => (
-              <motion.img key={hoveredProject?.id + '-' + i} src={url} alt='Award laurel' initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className='h-20 w-auto object-contain opacity-60 max-w-[60px]' />
+              <motion.img 
+                key={hoveredProject?.id + '-' + i} 
+                src={url} 
+                alt='Award laurel' 
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: 10 }} 
+                className='h-40 w-auto object-contain opacity-75 max-w-[60px]' 
+                style={{ filter: 'brightness(0) saturate(100%) invert(10%) sepia(95%) saturate(7500%) hue-rotate(5deg) brightness(110%)' }}
+              />
             ))}
           </div>
         </AnimatePresence>
@@ -387,16 +400,16 @@ export default function App() {
       <AnimatePresence>
         {selectedProject && (
           <motion.div
-            initial={{ opacity: 0, y: '4%' }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: '-2%' }}
-            transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
+            initial={{ opacity: 0, clipPath: 'inset(2% 2% 2% 2% round 4px)' }}
+            animate={{ opacity: 1, clipPath: 'inset(0% 0% 0% 0% round 0px)' }}
+            exit={{ opacity: 0, clipPath: 'inset(2% 2% 2% 2% round 4px)' }}
+            transition={{ duration: 0.7, ease: [0.76, 0, 0.24, 1] }}
             className="fixed inset-0 z-[60] flex flex-col bg-bg overflow-y-auto"
           >
             <div className='flex md:hidden items-center justify-between p-6 sticky top-0 z-[80]'>
               <StrikeButton
                 onClick={handlePrev}
-                className={`text-[13px] uppercase tracking-widest opacity-60 ${
+                className={`text-[13px] uppercase tracking-widest opacity-75 ${
                   filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
                 }`}
               >
@@ -405,7 +418,7 @@ export default function App() {
               <p className='text-[13px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
               <StrikeButton
                 onClick={handleNext}
-                className={`text-[13px] uppercase tracking-widest opacity-60 ${
+                className={`text-[13px] uppercase tracking-widest opacity-75 ${
                   filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
                 }`}
               >
@@ -415,51 +428,46 @@ export default function App() {
             <div className='flex md:hidden justify-end px-6 pb-2'>
               <StrikeButton
                 onClick={() => { setSelectedProject(null); setIsCreditsOpen(false); }}
-                className='text-[13px] uppercase tracking-widest opacity-60'
+                className='text-[13px] uppercase tracking-widest opacity-75'
               >
                 Close
               </StrikeButton>
             </div>
 
             <div className='hidden md:flex sticky top-0 z-[80] relative items-center justify-between p-6 md:p-10 bg-transparent'>
-              <div className="flex items-center gap-10">
-                {selectedProject.credits && selectedProject.credits.trim() !== '' && (
-                  <StrikeButton
-                    onClick={() => {
-                      setIsCreditsOpen(true);
-                      if (videoRef.current) {
-                        videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
-                      }
-                    }}
-                    className="text-[16px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
-                  >
-                    Credits
-                  </StrikeButton>
-                )}
-              </div>
-
-              <div className='absolute left-1/2 -translate-x-1/2 text-center pointer-events-none'>
-                <p className='text-[16px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
-              </div>
-
               <div className='flex items-center gap-10'>
                 <StrikeButton
                   onClick={() => {
                     setSelectedProject(null);
                     setIsCreditsOpen(false);
                   }}
-                  className='text-[16px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
+                  className='text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
                 >
                   Close
                 </StrikeButton>
+                {selectedProject.credits && selectedProject.credits.trim() !== '' && (
+                  <StrikeButton
+                    onClick={() => {
+                      setIsCreditsOpen(true);
+                      if (videoRef.current) videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
+                    }}
+                    className='text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
+                  >
+                    Credits
+                  </StrikeButton>
+                )}
               </div>
+              <div className='absolute left-1/2 -translate-x-1/2 text-center pointer-events-none'>
+                <p className='text-[16px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
+              </div>
+              <div />
             </div>
 
             <div className="flex-1 flex flex-col items-center py-10 px-6 md:px-20 space-y-10">
               <div className='relative w-full max-w-6xl'>
                 <StrikeButton
                   onClick={handlePrev}
-                  className={`absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity ${
+                  className={`absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity ${
                     filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
                   }`}
                 >
@@ -486,7 +494,7 @@ export default function App() {
 
                 <StrikeButton
                   onClick={handleNext}
-                  className={`absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity ${
+                  className={`absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity ${
                     filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
                   }`}
                 >
@@ -527,7 +535,7 @@ export default function App() {
                   transition={{ duration: 0.5, ease: [0.76, 0, 0.24, 1] }}
                   className='fixed inset-0 z-[90] flex items-center justify-center'
                   style={{
-                    background: 'rgba(0, 0, 0, 0.3)',
+                    background: 'rgba(0, 0, 0, 0.5)',
                     backdropFilter: 'blur(10px)',
                     WebkitBackdropFilter: 'blur(10px)'
                   }}
@@ -538,7 +546,7 @@ export default function App() {
                       e.stopPropagation();
                       setIsCreditsOpen(false);
                     }}
-                    className='absolute top-6 left-6 md:top-10 md:left-10 text-[14px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
+                    className='absolute top-6 left-6 md:top-10 md:left-10 text-[14px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
                   >
                     Close
                   </button>
@@ -551,7 +559,7 @@ export default function App() {
                         const [role, name] = line.split(':').map(s => s.trim());
                         return (
                           <div key={`credit-${i}`} className="contents">
-                            <span className='text-[16px] uppercase tracking-[0.15em] opacity-60 font-normal'>{role}</span>
+                            <span className='text-[16px] uppercase tracking-[0.15em] opacity-75 font-normal'>{role}</span>
                             <span className='text-[16px] uppercase tracking-[0.15em] opacity-100 font-bold text-right'>{name}</span>
                           </div>
                         );
@@ -577,29 +585,26 @@ export default function App() {
           >
             <button
               onClick={() => setIsAboutOpen(false)}
-              className='flex md:hidden absolute top-6 right-6 text-[14px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
+              className='flex md:hidden absolute top-6 right-6 text-[14px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
             >
               Close
             </button>
-            <div className='w-full max-w-5xl p-6 lg:p-10 mt-[5vh] lg:-mt-[35vh]' onClick={(e) => e.stopPropagation()}>
-              <div className='flex flex-col lg:grid lg:grid-cols-12 gap-10 lg:gap-20'>
-                <div className='lg:col-span-5 lg:text-right'>
-                  <h4 className='text-[16px] uppercase tracking-[0.4em] opacity-30'>Bio</h4>
+            <div className='w-full max-w-2xl' style={{ marginTop: '-35vh', paddingLeft: '2.5rem' }} onClick={(e) => e.stopPropagation()}>
+              <div className='flex flex-col gap-12'>
+                <div className='flex flex-col gap-6'>
+                  <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
+                  <div className='flex flex-col gap-6 text-[14px] uppercase tracking-[0.2em] leading-loose opacity-100'>
+                    <p>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
+                    <p>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
+                  </div>
                 </div>
-                <div className='lg:col-span-7 space-y-6 text-[14px] uppercase tracking-[0.15em] leading-loose opacity-60 max-w-xl'>
-                  <p>
-  Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.
-</p>
-<p>
-  Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.
-</p></div>
-                <div className='lg:col-span-5 lg:text-right'>
-                  <h4 className='text-[16px] uppercase tracking-[0.4em] opacity-30'>Contact</h4>
-                </div>
-                <div className='lg:col-span-7 flex flex-col gap-3'>
-                  <a href='mailto:contact@janikrai.com' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
-                  <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Vimeo</a>
-                  <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Instagram</a>
+                <div className='flex flex-col gap-4'>
+                  <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-70 font-bold'>Contact</h4>
+                  <div className='flex flex-col gap-3'>
+                    <a href='mailto:contact@janikrai.com' className='text-[14px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
+                    <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[14px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>Vimeo</a>
+                    <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[14px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>Instagram</a>
+                  </div>
                 </div>
               </div>
             </div>
