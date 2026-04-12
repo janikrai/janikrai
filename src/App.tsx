@@ -208,19 +208,15 @@ export default function App() {
         </button>
         <div className='flex items-center gap-8'>
           {CATEGORIES.map((cat) => (
-            <div key={cat} className='flex flex-col items-center'>
-              <StrikeButton
-                onClick={() => setActiveCategory(cat as Category)}
-                className={`text-[11px] uppercase tracking-widest transition-opacity ${
-                  activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-40'
-                }`}
-              >
-                {cat}
-              </StrikeButton>
-              {activeCategory === cat && (
-                <div className='h-[1px] w-full bg-current mt-1 opacity-100' />
-              )}
-            </div>
+            <StrikeButton
+              key={cat}
+              onClick={() => setActiveCategory(cat as Category)}
+              className={`text-[11px] uppercase tracking-widest transition-opacity ${
+                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-40'
+              }`}
+            >
+              {cat}
+            </StrikeButton>
           ))}
           <StrikeButton
             onClick={() => setIsAboutOpen(true)}
@@ -349,6 +345,16 @@ export default function App() {
                   </div>
                 </div>
               ))}
+              <div className='absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none'>
+                <motion.div
+                  animate={{ y: [0, 6, 0] }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                  className='flex flex-col items-center gap-[3px] opacity-30'
+                >
+                  <div className='w-[1px] h-4 bg-current' />
+                  <div className='w-1.5 h-1.5 rounded-full bg-current' />
+                </motion.div>
+              </div>
             </div>
           )}
         </div>
@@ -542,8 +548,9 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[70] flex items-center justify-center bg-bg/85 backdrop-blur-sm"
+            onClick={() => setIsAboutOpen(false)}
           >
-            <div className='w-full max-w-5xl p-6 lg:p-10 mt-[5vh] lg:-mt-[35vh]'>
+            <div className='w-full max-w-5xl p-6 lg:p-10 mt-[5vh] lg:-mt-[35vh]' onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col lg:grid lg:grid-cols-12 gap-10 lg:gap-20'>
                 <div className='lg:col-span-5 lg:text-right'>
                   <h4 className='text-[15px] uppercase tracking-[0.4em] opacity-40'>Bio</h4>
