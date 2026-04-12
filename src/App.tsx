@@ -152,7 +152,7 @@ export default function App() {
               <StrikeButton
                 key={cat}
                 onClick={() => setActiveCategory(cat as Category)}
-                className={`text-[15px] font-medium uppercase tracking-widest transition-opacity hover:opacity-100 ${
+                className={`text-[16px] font-medium uppercase tracking-widest transition-opacity hover:opacity-100 ${
                   activeCategory === cat ? 'opacity-100' : 'opacity-40'
                 }`}
               >
@@ -169,7 +169,7 @@ export default function App() {
                 setSelectedProject(null);
                 setIsAboutOpen(false);
               }}
-              className="text-[15px] font-bold uppercase tracking-[0.3em]"
+              className="text-[16px] font-bold uppercase tracking-[0.3em]"
             >
               Janik Rai
             </button>
@@ -179,14 +179,14 @@ export default function App() {
           {isAboutOpen ? (
             <StrikeButton
               onClick={() => setIsAboutOpen(false)}
-              className="text-[15px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-all"
+              className="text-[16px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-all"
             >
               Close
             </StrikeButton>
           ) : (
             <StrikeButton
               onClick={() => setIsAboutOpen(true)}
-              className="text-[15px] font-medium uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity"
+              className="text-[16px] font-medium uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity"
             >
               Info
             </StrikeButton>
@@ -202,7 +202,7 @@ export default function App() {
             setSelectedProject(null);
             setIsAboutOpen(false);
           }}
-          className='text-[13px] font-bold uppercase tracking-[0.3em] mb-4'
+          className='text-[17px] font-bold uppercase tracking-[0.3em] mb-4'
         >
           Janik Rai
         </button>
@@ -211,7 +211,7 @@ export default function App() {
             <StrikeButton
               key={cat}
               onClick={() => setActiveCategory(cat as Category)}
-              className={`text-[11px] uppercase tracking-widest transition-opacity ${
+              className={`text-[14px] uppercase tracking-widest transition-opacity ${
                 activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-40'
               }`}
             >
@@ -220,7 +220,7 @@ export default function App() {
           ))}
           <StrikeButton
             onClick={() => setIsAboutOpen(true)}
-            className='text-[11px] uppercase tracking-widest opacity-40'
+            className='text-[14px] uppercase tracking-widest opacity-40'
           >
             Info
           </StrikeButton>
@@ -247,7 +247,7 @@ export default function App() {
                 className="group flex cursor-pointer items-baseline justify-start gap-4 py-0 transition-colors"
               >
                 <div className="grid items-baseline" style={{ gridTemplateColumns: '2rem 12rem 1rem 1fr' }}>
-                  <span className={`text-[13px] font-mono transition-all duration-300 ${
+                  <span className={`text-[14px] font-mono transition-all duration-300 ${
                     hoveredProject?.id === project.id 
                       ? 'text-ink/60 line-through decoration-ink/60' 
                       : 'text-ink/35'
@@ -255,7 +255,7 @@ export default function App() {
                     {(index + 1).toString().padStart(2, '0')}
                   </span>
                   
-                  <h2 className={`text-[15px] uppercase tracking-[0.1em] transition-all duration-300 ${
+                  <h2 className={`text-[16px] uppercase tracking-[0.1em] transition-all duration-300 ${
                     hoveredProject?.id === project.id 
                       ? 'text-ink font-bold' 
                       : 'text-ink/60 group-hover:text-ink/70 font-bold'
@@ -264,7 +264,7 @@ export default function App() {
                   </h2>
 
                   <span 
-                    className={`text-[18px] font-bold transition-opacity duration-300 ${
+                    className={`text-[19px] font-bold transition-opacity duration-300 ${
                       hoveredProject?.id === project.id ? 'opacity-100' : 'opacity-0'
                     }`}
                     style={{ fontWeight: 900 }}
@@ -274,7 +274,7 @@ export default function App() {
                     </svg>
                   </span>
 
-                  <span className={`text-[14px] uppercase tracking-[0.1em] transition-all duration-300 ${
+                  <span className={`text-[15px] uppercase tracking-[0.1em] transition-all duration-300 ${
                     hoveredProject?.id === project.id 
                       ? 'text-ink/80' 
                       : 'text-ink/35 group-hover:text-ink/40'
@@ -406,7 +406,7 @@ export default function App() {
                         videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
                       }
                     }}
-                    className="text-[15px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
+                    className="text-[16px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity"
                   >
                     Credits
                   </StrikeButton>
@@ -414,7 +414,7 @@ export default function App() {
               </div>
 
               <div className='absolute left-1/2 -translate-x-1/2 text-center pointer-events-none'>
-                <p className='text-[15px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
+                <p className='text-[16px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
               </div>
 
               <div className='flex items-center gap-10'>
@@ -423,7 +423,7 @@ export default function App() {
                     setSelectedProject(null);
                     setIsCreditsOpen(false);
                   }}
-                  className='text-[15px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
+                  className='text-[16px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
                 >
                   Close
                 </StrikeButton>
@@ -434,7 +434,7 @@ export default function App() {
               <div className='relative w-full max-w-6xl'>
                 <StrikeButton
                   onClick={handlePrev}
-                  className={`absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[15px] uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity ${
+                  className={`absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity ${
                     filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
                   }`}
                 >
@@ -461,7 +461,7 @@ export default function App() {
 
                 <StrikeButton
                   onClick={handleNext}
-                  className={`absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[15px] uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity ${
+                  className={`absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity ${
                     filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
                   }`}
                 >
@@ -513,21 +513,21 @@ export default function App() {
                       e.stopPropagation();
                       setIsCreditsOpen(false);
                     }}
-                    className='absolute top-6 left-6 md:top-10 md:left-10 text-[13px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
+                    className='absolute top-6 left-6 md:top-10 md:left-10 text-[14px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
                   >
                     Close
                   </button>
                   <div
                     className='max-w-3xl w-full px-16 py-14 rounded-sm'
                   >
-                    <h4 className='text-[15px] uppercase tracking-[0.5em] font-bold mb-12'>Credits</h4>
+                    <h4 className='text-[16px] uppercase tracking-[0.5em] font-bold mb-12'>Credits</h4>
                     <div className='grid gap-y-4' style={{ gridTemplateColumns: '1fr 1fr' }}>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
                         const [role, name] = line.split(':').map(s => s.trim());
                         return (
                           <div key={`credit-${i}`} className="contents">
-                            <span className='text-[15px] uppercase tracking-[0.15em] opacity-90 font-normal'>{role}</span>
-                            <span className='text-[15px] uppercase tracking-[0.15em] opacity-100 font-bold text-right'>{name}</span>
+                            <span className='text-[16px] uppercase tracking-[0.15em] opacity-90 font-normal'>{role}</span>
+                            <span className='text-[16px] uppercase tracking-[0.15em] opacity-100 font-bold text-right'>{name}</span>
                           </div>
                         );
                       })}
@@ -552,16 +552,16 @@ export default function App() {
           >
             <button
               onClick={() => setIsAboutOpen(false)}
-              className='flex md:hidden absolute top-6 right-6 text-[13px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
+              className='flex md:hidden absolute top-6 right-6 text-[14px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
             >
               Close
             </button>
             <div className='w-full max-w-5xl p-6 lg:p-10 mt-[5vh] lg:-mt-[35vh]' onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col lg:grid lg:grid-cols-12 gap-10 lg:gap-20'>
                 <div className='lg:col-span-5 lg:text-right'>
-                  <h4 className='text-[15px] uppercase tracking-[0.4em] opacity-40'>Bio</h4>
+                  <h4 className='text-[16px] uppercase tracking-[0.4em] opacity-40'>Bio</h4>
                 </div>
-                <div className='lg:col-span-7 space-y-6 text-[13px] uppercase tracking-[0.15em] leading-loose opacity-90 max-w-xl'>
+                <div className='lg:col-span-7 space-y-6 text-[14px] uppercase tracking-[0.15em] leading-loose opacity-90 max-w-xl'>
                   <p>
   Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.
 </p>
@@ -569,12 +569,12 @@ export default function App() {
   Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.
 </p></div>
                 <div className='lg:col-span-5 lg:text-right'>
-                  <h4 className='text-[15px] uppercase tracking-[0.4em] opacity-40'>Contact</h4>
+                  <h4 className='text-[16px] uppercase tracking-[0.4em] opacity-40'>Contact</h4>
                 </div>
                 <div className='lg:col-span-7 flex flex-col gap-3'>
-                  <a href='mailto:contact@janikrai.com' className='text-[13px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
-                  <a href='https://vimeo.com/janikrai' className='text-[13px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Vimeo</a>
-                  <a href='https://www.instagram.com/janikrai' className='text-[13px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Instagram</a>
+                  <a href='mailto:contact@janikrai.com' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
+                  <a href='https://vimeo.com/janikrai' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Vimeo</a>
+                  <a href='https://www.instagram.com/janikrai' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Instagram</a>
                 </div>
               </div>
             </div>
