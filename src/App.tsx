@@ -47,11 +47,12 @@ export default function App() {
   const handleTouchEnd = (e: React.TouchEvent) => {
     touchEndY.current = e.changedTouches[0].clientY;
     const diff = (touchStartY.current ?? 0) - (touchEndY.current ?? 0);
-    if (diff > 35 && mobileIndex < filteredProjects.length - 1) {
-      setMobileIndex(i => i + 1);
+    const total = filteredProjects.length;
+    if (diff > 35) {
+      setMobileIndex(i => (i + 1) % total);
     }
-    if (diff < -35 && mobileIndex > 0) {
-      setMobileIndex(i => i - 1);
+    if (diff < -35) {
+      setMobileIndex(i => (i - 1 + total) % total);
     }
     touchStartY.current = null;
     touchEndY.current = null;
@@ -142,8 +143,9 @@ export default function App() {
   return (
     <div className="relative min-h-screen w-full bg-bg text-ink selection:bg-ink selection:text-bg">
       {/* Navigation */}
-      <nav className={`fixed top-0 left-0 z-[80] w-full px-6 md:px-10 py-4 md:py-6 bg-transparent transition-opacity duration-300 ${selectedProject ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <div className="flex items-start justify-between">
+      {/* Desktop Nav */}
+      <nav className={`fixed top-0 left-0 z-[80] w-full px-6 md:px-10 py-4 md:py-6 bg-transparent transition-opacity duration-300 hidden md:flex ${selectedProject ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className="flex items-start justify-between w-full">
           {/* Categories */}
           <div className={`flex gap-6 md:gap-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
             {CATEGORIES.map((cat) => (
@@ -191,6 +193,43 @@ export default function App() {
           )}
         </div>
       </nav>
+
+      {/* Mobile Nav */}
+      <div className={`fixed top-0 left-0 right-0 z-[80] flex md:hidden flex-col items-center pt-4 pb-3 bg-transparent transition-opacity duration-300 ${isAboutOpen || selectedProject ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <button
+          onClick={() => {
+            setActiveCategory('Selected');
+            setSelectedProject(null);
+            setIsAboutOpen(false);
+          }}
+          className='text-[13px] font-bold uppercase tracking-[0.3em] mb-4'
+        >
+          Janik Rai
+        </button>
+        <div className='flex items-center gap-8'>
+          {CATEGORIES.map((cat) => (
+            <div key={cat} className='flex flex-col items-center'>
+              <StrikeButton
+                onClick={() => setActiveCategory(cat as Category)}
+                className={`text-[11px] uppercase tracking-widest transition-opacity ${
+                  activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-40'
+                }`}
+              >
+                {cat}
+              </StrikeButton>
+              {activeCategory === cat && (
+                <div className='h-[1px] w-full bg-current mt-1 opacity-100' />
+              )}
+            </div>
+          ))}
+          <StrikeButton
+            onClick={() => setIsAboutOpen(true)}
+            className='text-[11px] uppercase tracking-widest opacity-40'
+          >
+            Info
+          </StrikeButton>
+        </div>
+      </div>
 
       {/* Main Content */}
       <main
