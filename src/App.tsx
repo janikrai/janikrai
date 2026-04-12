@@ -550,6 +550,12 @@ export default function App() {
             className="fixed inset-0 z-[70] flex items-center justify-center bg-bg/85 backdrop-blur-sm"
             onClick={() => setIsAboutOpen(false)}
           >
+            <button
+              onClick={() => setIsAboutOpen(false)}
+              className='flex md:hidden absolute top-6 right-6 text-[13px] uppercase tracking-widest opacity-60 hover:opacity-100 transition-opacity'
+            >
+              Close
+            </button>
             <div className='w-full max-w-5xl p-6 lg:p-10 mt-[5vh] lg:-mt-[35vh]' onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col lg:grid lg:grid-cols-12 gap-10 lg:gap-20'>
                 <div className='lg:col-span-5 lg:text-right'>
