@@ -4,21 +4,15 @@ import { PROJECTS, CATEGORIES } from './constants';
 import { Project, Category } from './types';
 
 function StrikeButton({ children, onClick, className, disabled }: { children: React.ReactNode, onClick?: () => void, className?: string, disabled?: boolean }) {
-  const [hovered, setHovered] = useState(false);
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className={`${className} ${disabled ? 'pointer-events-none' : ''}`}
+      className={`group ${className} ${disabled ? 'pointer-events-none' : ''}`}
       disabled={disabled}
     >
       <span className='relative inline-block'>
         {children}
-        <span
-          className='absolute left-0 top-1/2 h-[1px] bg-current transition-all duration-300 ease-out'
-          style={{ width: hovered ? '100%' : '0%' }}
-        />
+        <span className='absolute left-0 top-1/2 h-[1px] bg-current transition-all duration-300 ease-out w-0 group-hover:w-full' />
       </span>
     </button>
   );
@@ -34,6 +28,7 @@ export default function App() {
   const [isCreditsOpen, setIsCreditsOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [mobileIndex, setMobileIndex] = useState(0);
+  const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
 
   const touchStartY = useRef<number | null>(null);
   const touchEndY = useRef<number | null>(null);
@@ -50,9 +45,11 @@ export default function App() {
     const total = filteredProjects.length;
     if (diff > 35) {
       setMobileIndex(i => (i + 1) % total);
+      setHasSwipedOnce(true);
     }
     if (diff < -35) {
       setMobileIndex(i => (i - 1 + total) % total);
+      setHasSwipedOnce(true);
     }
     touchStartY.current = null;
     touchEndY.current = null;
@@ -153,7 +150,7 @@ export default function App() {
                 key={cat}
                 onClick={() => setActiveCategory(cat as Category)}
                 className={`text-[16px] font-medium uppercase tracking-widest transition-opacity hover:opacity-100 ${
-                  activeCategory === cat ? 'opacity-100' : 'opacity-40'
+                  activeCategory === cat ? 'opacity-100' : 'opacity-30'
                 }`}
               >
                 {cat}
@@ -186,7 +183,7 @@ export default function App() {
           ) : (
             <StrikeButton
               onClick={() => setIsAboutOpen(true)}
-              className="text-[16px] font-medium uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity"
+              className="text-[16px] font-medium uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity"
             >
               Info
             </StrikeButton>
@@ -212,7 +209,7 @@ export default function App() {
               key={cat}
               onClick={() => setActiveCategory(cat as Category)}
               className={`text-[14px] uppercase tracking-widest transition-opacity ${
-                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-40'
+                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-30'
               }`}
             >
               {cat}
@@ -220,7 +217,7 @@ export default function App() {
           ))}
           <StrikeButton
             onClick={() => setIsAboutOpen(true)}
-            className='text-[14px] uppercase tracking-widest opacity-40'
+            className='text-[14px] uppercase tracking-widest opacity-30'
           >
             Info
           </StrikeButton>
@@ -246,11 +243,11 @@ export default function App() {
                 onClick={() => handleProjectClick(project)}
                 className="group flex cursor-pointer items-baseline justify-start gap-4 py-0 transition-colors"
               >
-                <div className="grid items-baseline" style={{ gridTemplateColumns: '2rem 12rem 1rem 1fr' }}>
+                <div className="grid items-baseline" style={{ gridTemplateColumns: '2rem minmax(12rem, auto) 1rem minmax(8rem, auto)' }}>
                   <span className={`text-[14px] font-mono transition-all duration-300 ${
                     hoveredProject?.id === project.id 
                       ? 'text-ink/60 line-through decoration-ink/60' 
-                      : 'text-ink/35'
+                      : 'text-ink/30'
                   }`}>
                     {(index + 1).toString().padStart(2, '0')}
                   </span>
@@ -258,7 +255,7 @@ export default function App() {
                   <h2 className={`text-[16px] uppercase tracking-[0.1em] transition-all duration-300 ${
                     hoveredProject?.id === project.id 
                       ? 'text-ink font-bold' 
-                      : 'text-ink/60 group-hover:text-ink/70 font-bold'
+                      : 'text-ink/60 group-hover:text-ink/60 font-bold'
                   }`}>
                     {project.name}
                   </h2>
@@ -276,8 +273,8 @@ export default function App() {
 
                   <span className={`text-[15px] uppercase tracking-[0.1em] transition-all duration-300 ${
                     hoveredProject?.id === project.id 
-                      ? 'text-ink/80' 
-                      : 'text-ink/35 group-hover:text-ink/40'
+                      ? 'text-ink/60' 
+                      : 'text-ink/30 group-hover:text-ink/60'
                   }`}>
                     {project.client}
                   </span>
@@ -298,13 +295,11 @@ export default function App() {
                     className='relative aspect-video cursor-pointer overflow-hidden'
                     onClick={() => handleProjectClick(project)}
                   >
-                    <video
-                      src={project.teaserUrl}
-                      muted
-                      loop
-                      playsInline
-                      autoPlay
+                    <img
+                      src={project.stills?.[0] ?? project.teaserUrl}
+                      alt={project.name}
                       className='absolute inset-0 w-full h-full object-cover'
+                      loading='lazy'
                     />
                     <div className='absolute inset-0 bg-black/40' />
                     <div className='absolute inset-0 flex flex-col items-start justify-end p-2'>
@@ -333,28 +328,30 @@ export default function App() {
                     muted
                     loop
                     playsInline
-                    className='absolute inset-0 w-full h-full object-cover opacity-70'
+                    className='absolute inset-0 w-full h-full object-cover opacity-60'
                   />
                   <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20' />
                   <div
                     className='absolute inset-0 flex flex-col items-center justify-center px-8'
                     onClick={() => handleProjectClick(project)}
                   >
-                    <p className='text-[11px] uppercase tracking-[0.3em] opacity-50 mb-3'>{project.client}</p>
+                    <p className='text-[11px] uppercase tracking-[0.3em] opacity-30 mb-3'>{project.client}</p>
                     <h2 className='text-xl uppercase tracking-[0.15em] font-bold text-center'>{project.name}</h2>
                   </div>
                 </div>
               ))}
-              <div className='absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none'>
-                <motion.div
-                  animate={{ y: [0, 6, 0] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-                  className='flex flex-col items-center gap-[3px] opacity-30'
-                >
-                  <div className='w-[1px] h-4 bg-current' />
-                  <div className='w-1.5 h-1.5 rounded-full bg-current' />
-                </motion.div>
-              </div>
+              {!hasSwipedOnce && (
+                <div className='absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none'>
+                  <motion.div
+                    animate={{ y: [0, 6, 0] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                    className='flex flex-col items-center gap-[3px] opacity-30'
+                  >
+                    <div className='w-[1px] h-4 bg-current' />
+                    <div className='w-1.5 h-1.5 rounded-full bg-current' />
+                  </motion.div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -372,7 +369,7 @@ export default function App() {
           playsInline
           style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.6 }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent opacity-60" />
+        <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent opacity-30" />
       </div>
 
       {/* Award Indicator (Bottom Right) */}
@@ -380,7 +377,7 @@ export default function App() {
         <AnimatePresence>
           <div className='flex gap-3 items-end' style={{ flexWrap: 'wrap' }}>
             {hoveredProject?.laurelUrls?.map((url, i) => (
-              <motion.img key={hoveredProject?.id + '-' + i} src={url} alt='Award laurel' initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className='h-20 w-auto object-contain opacity-90' />
+              <motion.img key={hoveredProject?.id + '-' + i} src={url} alt='Award laurel' initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className='h-20 w-auto object-contain opacity-60 max-w-[60px]' />
             ))}
           </div>
         </AnimatePresence>
@@ -396,7 +393,35 @@ export default function App() {
             transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
             className="fixed inset-0 z-[60] flex flex-col bg-bg overflow-y-auto"
           >
-            <div className='sticky top-0 z-[80] relative flex items-center justify-between p-6 md:p-10 bg-transparent'>
+            <div className='flex md:hidden items-center justify-between p-6 sticky top-0 z-[80]'>
+              <StrikeButton
+                onClick={handlePrev}
+                className={`text-[13px] uppercase tracking-widest opacity-60 ${
+                  filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
+                }`}
+              >
+                Prev
+              </StrikeButton>
+              <p className='text-[13px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
+              <StrikeButton
+                onClick={handleNext}
+                className={`text-[13px] uppercase tracking-widest opacity-60 ${
+                  filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
+                }`}
+              >
+                Next
+              </StrikeButton>
+            </div>
+            <div className='flex md:hidden justify-end px-6 pb-2'>
+              <StrikeButton
+                onClick={() => { setSelectedProject(null); setIsCreditsOpen(false); }}
+                className='text-[13px] uppercase tracking-widest opacity-60'
+              >
+                Close
+              </StrikeButton>
+            </div>
+
+            <div className='hidden md:flex sticky top-0 z-[80] relative items-center justify-between p-6 md:p-10 bg-transparent'>
               <div className="flex items-center gap-10">
                 {selectedProject.credits && selectedProject.credits.trim() !== '' && (
                   <StrikeButton
@@ -434,7 +459,7 @@ export default function App() {
               <div className='relative w-full max-w-6xl'>
                 <StrikeButton
                   onClick={handlePrev}
-                  className={`absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity ${
+                  className={`absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity ${
                     filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
                   }`}
                 >
@@ -461,7 +486,7 @@ export default function App() {
 
                 <StrikeButton
                   onClick={handleNext}
-                  className={`absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-40 hover:opacity-100 transition-opacity ${
+                  className={`absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity ${
                     filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
                   }`}
                 >
@@ -526,7 +551,7 @@ export default function App() {
                         const [role, name] = line.split(':').map(s => s.trim());
                         return (
                           <div key={`credit-${i}`} className="contents">
-                            <span className='text-[16px] uppercase tracking-[0.15em] opacity-90 font-normal'>{role}</span>
+                            <span className='text-[16px] uppercase tracking-[0.15em] opacity-60 font-normal'>{role}</span>
                             <span className='text-[16px] uppercase tracking-[0.15em] opacity-100 font-bold text-right'>{name}</span>
                           </div>
                         );
@@ -559,9 +584,9 @@ export default function App() {
             <div className='w-full max-w-5xl p-6 lg:p-10 mt-[5vh] lg:-mt-[35vh]' onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col lg:grid lg:grid-cols-12 gap-10 lg:gap-20'>
                 <div className='lg:col-span-5 lg:text-right'>
-                  <h4 className='text-[16px] uppercase tracking-[0.4em] opacity-40'>Bio</h4>
+                  <h4 className='text-[16px] uppercase tracking-[0.4em] opacity-30'>Bio</h4>
                 </div>
-                <div className='lg:col-span-7 space-y-6 text-[14px] uppercase tracking-[0.15em] leading-loose opacity-90 max-w-xl'>
+                <div className='lg:col-span-7 space-y-6 text-[14px] uppercase tracking-[0.15em] leading-loose opacity-60 max-w-xl'>
                   <p>
   Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.
 </p>
@@ -569,12 +594,12 @@ export default function App() {
   Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.
 </p></div>
                 <div className='lg:col-span-5 lg:text-right'>
-                  <h4 className='text-[16px] uppercase tracking-[0.4em] opacity-40'>Contact</h4>
+                  <h4 className='text-[16px] uppercase tracking-[0.4em] opacity-30'>Contact</h4>
                 </div>
                 <div className='lg:col-span-7 flex flex-col gap-3'>
                   <a href='mailto:contact@janikrai.com' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
-                  <a href='https://vimeo.com/janikrai' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Vimeo</a>
-                  <a href='https://www.instagram.com/janikrai' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Instagram</a>
+                  <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Vimeo</a>
+                  <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[14px] uppercase tracking-[0.2em] hover:opacity-60 transition-opacity'>Instagram</a>
                 </div>
               </div>
             </div>
