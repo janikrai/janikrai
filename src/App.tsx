@@ -34,7 +34,6 @@ export default function App() {
   const [isCreditsOpen, setIsCreditsOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [mobileIndex, setMobileIndex] = useState(0);
-  const [swipeDirection, setSwipeDirection] = useState<'up' | 'down' | null>(null);
 
   const touchStartY = useRef<number | null>(null);
   const touchEndY = useRef<number | null>(null);
@@ -49,11 +48,9 @@ export default function App() {
     touchEndY.current = e.changedTouches[0].clientY;
     const diff = (touchStartY.current ?? 0) - (touchEndY.current ?? 0);
     if (diff > 35 && mobileIndex < filteredProjects.length - 1) {
-      setSwipeDirection('up');
       setMobileIndex(i => i + 1);
     }
     if (diff < -35 && mobileIndex > 0) {
-      setSwipeDirection('down');
       setMobileIndex(i => i - 1);
     }
     touchStartY.current = null;
@@ -141,49 +138,6 @@ export default function App() {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isCreditsOpen, selectedProject, isAboutOpen]);
-
-  const mobileVariants: any = {
-    enterUp: {
-      y: '100%',
-      scale: 0.95,
-      opacity: 0
-    },
-    enterDown: {
-      y: '-100%',
-      scale: 0.95,
-      opacity: 0
-    },
-    center: {
-      y: 0,
-      scale: 1,
-      opacity: 1,
-      transition: {
-        y: { type: 'spring' as const, stiffness: 300, damping: 40 },
-        scale: { duration: 0.5, ease: [0.76, 0, 0.24, 1] },
-        opacity: { duration: 0.3 }
-      }
-    },
-    exitUp: {
-      y: '-100%',
-      scale: 0.95,
-      opacity: 0,
-      transition: {
-        y: { type: 'spring' as const, stiffness: 300, damping: 40 },
-        scale: { duration: 0.4 },
-        opacity: { duration: 0.2 }
-      }
-    },
-    exitDown: {
-      y: '100%',
-      scale: 0.95,
-      opacity: 0,
-      transition: {
-        y: { type: 'spring' as const, stiffness: 300, damping: 40 },
-        scale: { duration: 0.4 },
-        opacity: { duration: 0.2 }
-      }
-    }
-  };
 
   return (
     <div className="relative min-h-screen w-full bg-bg text-ink selection:bg-ink selection:text-bg">
@@ -327,24 +281,19 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div
-              className='fixed inset-0 overflow-hidden'
+            <div 
+              className={`fixed inset-0 overflow-hidden z-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
             >
-              <AnimatePresence mode='wait' custom={swipeDirection}>
-                <motion.div
-                  key={filteredProjects[mobileIndex].id}
-                  custom={swipeDirection}
-                  variants={mobileVariants}
-                  initial={swipeDirection === 'up' ? 'enterUp' : swipeDirection === 'down' ? 'enterDown' : 'center'}
-                  animate='center'
-                  exit={swipeDirection === 'up' ? 'exitUp' : 'exitDown'}
-                  onAnimationComplete={() => setSwipeDirection(null)}
-                  className='absolute inset-0'
+              {filteredProjects.map((project, i) => (
+                <div
+                  key={project.id}
+                  className='absolute inset-0 transition-opacity duration-500'
+                  style={{ opacity: i === mobileIndex ? 1 : 0, pointerEvents: i === mobileIndex ? 'auto' : 'none' }}
                 >
                   <video
-                    src={filteredProjects[mobileIndex].teaserUrl}
+                    src={project.teaserUrl}
                     autoPlay
                     muted
                     loop
@@ -354,13 +303,13 @@ export default function App() {
                   <div className='absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20' />
                   <div
                     className='absolute inset-0 flex flex-col items-center justify-center px-8'
-                    onClick={() => handleProjectClick(filteredProjects[mobileIndex])}
+                    onClick={() => handleProjectClick(project)}
                   >
-                    <p className='text-[11px] uppercase tracking-[0.3em] opacity-50 mb-3'>{filteredProjects[mobileIndex].client}</p>
-                    <h2 className='text-xl uppercase tracking-[0.15em] font-bold text-center'>{filteredProjects[mobileIndex].name}</h2>
+                    <p className='text-[11px] uppercase tracking-[0.3em] opacity-50 mb-3'>{project.client}</p>
+                    <h2 className='text-xl uppercase tracking-[0.15em] font-bold text-center'>{project.name}</h2>
                   </div>
-                </motion.div>
-              </AnimatePresence>
+                </div>
+              ))}
             </div>
           )}
         </div>
