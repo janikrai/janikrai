@@ -253,24 +253,43 @@ export default function App() {
         </div>
 
         {/* Mobile Project Browsing */}
-        <div 
-          className={`flex md:hidden fixed inset-0 flex-col items-center justify-center z-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          {filteredProjects.length > 0 && (
-            <>
-              <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={filteredProjects[mobileIndex].id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.4 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.6 }}
-                    className="absolute inset-0"
+        <div className="md:hidden">
+          {activeCategory === 'Archive' ? (
+            <div className={`fixed inset-0 overflow-y-auto z-10 px-3 pt-24 pb-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+              <div className='grid grid-cols-2 gap-2'>
+                {filteredProjects.map((project) => (
+                  <div
+                    key={project.id}
+                    className='relative aspect-video cursor-pointer overflow-hidden'
+                    onClick={() => handleProjectClick(project)}
                   >
-                    {filteredProjects[mobileIndex].teaserUrl && (
+                    <video
+                      src={project.teaserUrl}
+                      muted
+                      loop
+                      playsInline
+                      autoPlay
+                      className='absolute inset-0 w-full h-full object-cover'
+                    />
+                    <div className='absolute inset-0 bg-black/40' />
+                    <div className='absolute inset-0 flex flex-col items-start justify-end p-2'>
+                      <p className='text-[9px] uppercase tracking-[0.2em] opacity-60 leading-none mb-1'>{project.client}</p>
+                      <h3 className='text-[11px] uppercase tracking-[0.1em] font-bold leading-tight'>{project.name}</h3>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div 
+              className={`flex fixed inset-0 flex-col items-center justify-center z-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              {filteredProjects.length > 0 && (
+                <>
+                  <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                    <div className='absolute inset-0'>
                       <video
                         key={filteredProjects[mobileIndex].id}
                         src={filteredProjects[mobileIndex].teaserUrl}
@@ -278,18 +297,18 @@ export default function App() {
                         muted
                         loop
                         playsInline
-                        className='absolute inset-0 w-full h-full object-cover'
+                        className='absolute inset-0 w-full h-full object-cover opacity-50'
                       />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+                    </div>
+                  </div>
 
-              <div className='relative z-10 text-center px-8' onClick={() => handleProjectClick(filteredProjects[mobileIndex])}>
-                <p className='text-[15px] uppercase tracking-[0.3em] opacity-40 mb-4'>{filteredProjects[mobileIndex].client}</p>
-                <h2 className='text-lg uppercase tracking-[0.15em] font-bold mb-6'>{filteredProjects[mobileIndex].name}</h2>
-              </div>
-            </>
+                  <div className='relative z-10 text-center px-8' onClick={() => handleProjectClick(filteredProjects[mobileIndex])}>
+                    <p className='text-[15px] uppercase tracking-[0.3em] opacity-40 mb-4'>{filteredProjects[mobileIndex].client}</p>
+                    <h2 className='text-lg uppercase tracking-[0.15em] font-bold mb-6'>{filteredProjects[mobileIndex].name}</h2>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
       </main>
