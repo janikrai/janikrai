@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-bg: #0a0a0a;
+  --color-ink: #FF0000;
+}
+
+@layer base {
+  * {
+    font-family: 'Courier Prime', 'Courier New', monospace;
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans antialiased overflow-hidden;
+    background-color: var(--color-bg);
+  }
+
+  ::selection {
+    @apply bg-ink text-bg;
+  }
+}
+
+@layer utilities {
+  .text-trim-cap {
+    text-edge: cap;
+    leading-trim: both;
+  }
+}
+
+/* Custom scrollbar for popups */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
