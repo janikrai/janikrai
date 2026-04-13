@@ -18,7 +18,7 @@ export const PROJECTS: Project[] = [
     name: 'Farm to Table',
     client: 'JBS Foods',
     tags: ['Selected', 'Archive'],
-    videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/farm-to-table.mov',
+    videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/farm-to-table.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/farm-to-table.mp4',
     ratio: 'contain',
     hasAwards: true,

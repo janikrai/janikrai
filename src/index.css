@@ -8,7 +8,7 @@
 
 @layer base {
   * {
-    font-family: 'Courier Prime', 'Courier New', monospace;
+    font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
   }
 
   body {

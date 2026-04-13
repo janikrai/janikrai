@@ -256,10 +256,10 @@ export default function App() {
                     {(index + 1).toString().padStart(2, '0')}
                   </span>
                   
-                  <h2 className={`text-[16px] uppercase tracking-[0.1em] transition-all duration-300 ${
-                    hoveredProject?.id === project.id 
-                      ? 'text-ink font-bold' 
-                      : 'text-ink/75 group-hover:text-ink/75 font-bold'
+                  <h2 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className={`text-[15px] uppercase tracking-[0.1em] transition-all duration-300 ${
+                    hoveredProject?.id === project.id
+                      ? 'text-ink font-bold'
+                      : 'text-ink/60 group-hover:text-ink/70 font-bold'
                   }`}>
                     {project.name}
                   </h2>
@@ -340,7 +340,9 @@ export default function App() {
                     onClick={() => handleProjectClick(project)}
                   >
                     <p className='text-[11px] uppercase tracking-[0.3em] opacity-50 mb-3'>{project.client}</p>
-                    <h2 className='text-xl uppercase tracking-[0.15em] font-bold text-center'>{project.name}</h2>
+                    <h2 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-xl uppercase tracking-[0.15em] font-bold text-center'>
+                      {project.name}
+                    </h2>
                   </div>
                 </div>
               ))}
@@ -419,7 +421,7 @@ export default function App() {
                 </StrikeButton>
               )}
               {(!selectedProject.credits || selectedProject.credits.trim() === '') && <div />}
-              <p className='text-[13px] uppercase tracking-[0.2em] font-bold absolute left-1/2 -translate-x-1/2'>{selectedProject.name}</p>
+              <p style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[13px] uppercase tracking-[0.2em] font-bold absolute left-1/2 -translate-x-1/2'>{selectedProject.name}</p>
               <StrikeButton
                 onClick={() => { setSelectedProject(null); setIsCreditsOpen(false); }}
                 className='text-[13px] uppercase tracking-widest opacity-75'
@@ -452,7 +454,7 @@ export default function App() {
                 )}
               </div>
               <div className='absolute left-1/2 -translate-x-1/2 text-center pointer-events-none'>
-                <p className='text-[16px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
+                <p style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[16px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
               </div>
               <div />
             </div>
@@ -564,7 +566,7 @@ export default function App() {
                     Close
                   </button>
                   <div className='flex flex-col md:hidden w-full px-6 py-10 overflow-y-auto max-h-[80vh]' onClick={(e) => e.stopPropagation()}>
-                    <h4 className='text-[14px] uppercase tracking-[0.5em] font-bold mb-8'>Credits</h4>
+                    <h4 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[14px] uppercase tracking-[0.5em] font-bold mb-8'>Credits</h4>
                     <div className='flex flex-col gap-5'>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
                         const [role, name] = line.split(':').map(s => s.trim());
@@ -588,7 +590,7 @@ export default function App() {
                     className='hidden md:block max-w-3xl w-full px-16 py-14 rounded-sm'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <h4 className='text-[16px] uppercase tracking-[0.5em] font-bold mb-12'>Credits</h4>
+                    <h4 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[15px] uppercase tracking-[0.5em] font-bold mb-12'>Credits</h4>
                     <div className='grid gap-y-4' style={{ gridTemplateColumns: '1fr 1fr' }}>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
                         const [role, name] = line.split(':').map(s => s.trim());
@@ -627,8 +629,10 @@ export default function App() {
             <div className='w-full px-6 pt-24 pb-10 flex flex-col gap-10 lg:hidden' onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col gap-4'>
                 <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
-                <p className='text-[13px] uppercase tracking-[0.15em] leading-loose opacity-100'>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
-                <p className='text-[13px] uppercase tracking-[0.15em] leading-loose opacity-100'>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
+                <div style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='flex flex-col gap-6 text-[13px] uppercase tracking-[0.15em] leading-loose opacity-100'>
+                  <p>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
+                  <p>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
+                </div>
               </div>
               <div className='flex flex-col gap-4'>
                 <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-70 font-bold'>Contact</h4>
@@ -642,7 +646,7 @@ export default function App() {
               <div className='flex flex-col gap-12'>
                 <div className='flex flex-col gap-6'>
                   <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
-                  <div className='flex flex-col gap-6 text-[14px] uppercase tracking-[0.2em] leading-loose opacity-100'>
+                  <div style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='flex flex-col gap-6 text-[14px] uppercase tracking-[0.2em] leading-loose opacity-100'>
                     <p>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
                     <p>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
                   </div>
