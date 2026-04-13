@@ -407,25 +407,18 @@ export default function App() {
             className="fixed inset-0 z-[60] flex flex-col bg-bg overflow-y-auto"
           >
             <div className='flex md:hidden items-center justify-between p-6 sticky top-0 z-[80]'>
-              <StrikeButton
-                onClick={handlePrev}
-                className={`text-[13px] uppercase tracking-widest opacity-75 ${
-                  filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
-                }`}
-              >
-                Prev
-              </StrikeButton>
-              <p className='text-[13px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
-              <StrikeButton
-                onClick={handleNext}
-                className={`text-[13px] uppercase tracking-widest opacity-75 ${
-                  filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
-                }`}
-              >
-                Next
-              </StrikeButton>
-            </div>
-            <div className='flex md:hidden justify-end px-6 pb-2'>
+              {selectedProject.credits && selectedProject.credits.trim() !== '' && (
+                <StrikeButton
+                  onClick={() => {
+                    setIsCreditsOpen(true);
+                    if (videoRef.current) videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
+                  }}
+                  className='text-[13px] uppercase tracking-widest opacity-75'
+                >
+                  Credits
+                </StrikeButton>
+              )}
+              {(!selectedProject.credits || selectedProject.credits.trim() === '') && <div />}
               <StrikeButton
                 onClick={() => { setSelectedProject(null); setIsCreditsOpen(false); }}
                 className='text-[13px] uppercase tracking-widest opacity-75'
@@ -467,7 +460,7 @@ export default function App() {
               <div className='relative w-full max-w-6xl'>
                 <StrikeButton
                   onClick={handlePrev}
-                  className={`absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity ${
+                  className={`hidden md:flex absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity ${
                     filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
                   }`}
                 >
@@ -492,9 +485,28 @@ export default function App() {
                   />
                 </div>
 
+                <div className='flex md:hidden items-center justify-between w-full px-6 pt-4'>
+                  <StrikeButton
+                    onClick={handlePrev}
+                    className={`text-[13px] uppercase tracking-widest opacity-75 ${
+                      filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
+                    }`}
+                  >
+                    Prev
+                  </StrikeButton>
+                  <StrikeButton
+                    onClick={handleNext}
+                    className={`text-[13px] uppercase tracking-widest opacity-75 ${
+                      filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
+                    }`}
+                  >
+                    Next
+                  </StrikeButton>
+                </div>
+
                 <StrikeButton
                   onClick={handleNext}
-                  className={`absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity ${
+                  className={`hidden md:flex absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity ${
                     filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
                   }`}
                 >
@@ -550,8 +562,30 @@ export default function App() {
                   >
                     Close
                   </button>
+                  <div className='flex flex-col md:hidden w-full px-6 py-10 overflow-y-auto max-h-[80vh]' onClick={(e) => e.stopPropagation()}>
+                    <h4 className='text-[14px] uppercase tracking-[0.5em] font-bold mb-8'>Credits</h4>
+                    <div className='flex flex-col gap-5'>
+                      {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
+                        const [role, name] = line.split(':').map(s => s.trim());
+                        return (
+                          <div key={`credit-${i}`} className='flex flex-col gap-1'>
+                            <span className='text-[10px] uppercase tracking-[0.2em] opacity-70'>{role}</span>
+                            <span className='text-[12px] uppercase tracking-[0.15em] font-bold opacity-100'>{name}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <button
+                      className='mt-10 text-[12px] uppercase tracking-widest opacity-75 text-left'
+                      onClick={() => setIsCreditsOpen(false)}
+                    >
+                      Close
+                    </button>
+                  </div>
+
                   <div
-                    className='max-w-3xl w-full px-16 py-14 rounded-sm'
+                    className='hidden md:block max-w-3xl w-full px-16 py-14 rounded-sm'
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <h4 className='text-[16px] uppercase tracking-[0.5em] font-bold mb-12'>Credits</h4>
                     <div className='grid gap-y-4' style={{ gridTemplateColumns: '1fr 1fr' }}>
@@ -589,7 +623,21 @@ export default function App() {
             >
               Close
             </button>
-            <div className='w-full max-w-2xl' style={{ marginTop: '-35vh', paddingLeft: '2.5rem' }} onClick={(e) => e.stopPropagation()}>
+            <div className='w-full px-6 pt-24 pb-10 flex flex-col gap-10 lg:hidden' onClick={(e) => e.stopPropagation()}>
+              <div className='flex flex-col gap-4'>
+                <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
+                <p className='text-[13px] uppercase tracking-[0.15em] leading-loose opacity-100'>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
+                <p className='text-[13px] uppercase tracking-[0.15em] leading-loose opacity-100'>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
+              </div>
+              <div className='flex flex-col gap-4'>
+                <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-70 font-bold'>Contact</h4>
+                <a href='mailto:contact@janikrai.com' className='text-[13px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
+                <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[13px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>Vimeo</a>
+                <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[13px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>Instagram</a>
+              </div>
+            </div>
+
+            <div className='hidden lg:block w-full max-w-2xl' style={{ marginTop: '-35vh', paddingLeft: '2.5rem' }} onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col gap-12'>
                 <div className='flex flex-col gap-6'>
                   <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
