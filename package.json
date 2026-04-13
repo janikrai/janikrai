@@ -21,7 +21,9 @@
     "motion": "^12.23.24",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-helmet-async": "^3.0.0",
     "react-player": "^3.4.0",
+    "react-router-dom": "^7.14.0",
     "three": "^0.183.2",
     "vite": "^6.2.0"
   },

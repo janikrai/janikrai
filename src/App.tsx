@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate, useParams, useLocation, Routes, Route, Navigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { PROJECTS, CATEGORIES } from './constants';
 import { Project, Category } from './types';
 
@@ -18,25 +20,47 @@ function StrikeButton({ children, onClick, className, disabled }: { children: Re
   );
 }
 
-const getPoster = (project: Project) => project.stills?.[0] ?? undefined;
+const getPoster = (project: Project) => project.stills?.[0] ?? '';
 
 export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainView />} />
+      <Route path="/archive" element={<MainView />} />
+      <Route path="/info" element={<MainView />} />
+      <Route path="/work/:projectId" element={<MainView />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function MainView() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { projectId } = useParams();
+
   const [hoveredProject, setHoveredProject] = useState<Project | null>(null);
   const [activeTeaser, setActiveTeaser] = useState<Project>(PROJECTS[0]);
-  const [activeCategory, setActiveCategory] = useState<Category>('Selected');
-  const [isAboutOpen, setIsAboutOpen] = useState(false);
   const [isCreditsOpen, setIsCreditsOpen] = useState(false);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [mobileIndex, setMobileIndex] = useState(0);
   const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
 
+  const preCreditsVolume = useRef<number>(1);
   const touchStartY = useRef<number | null>(null);
   const touchEndY = useRef<number | null>(null);
+
+  const activeCategory: Category = location.pathname === '/archive' ? 'Archive' : 'Selected';
+  const isAboutOpen = location.pathname === '/info';
+  const selectedProject = useMemo(() => PROJECTS.find(p => p.id === projectId) || null, [projectId]);
 
   const filteredProjects = useMemo(
     () => PROJECTS.filter(p => p.tags.includes(activeCategory)),
     [activeCategory]
   );
+
+  const currentIndex = useMemo(() => selectedProject ? filteredProjects.findIndex(p => p.id === selectedProject.id) : -1, [selectedProject, filteredProjects]);
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex >= 0 && currentIndex < filteredProjects.length - 1;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -64,7 +88,7 @@ export default function App() {
   useEffect(() => {
     if (bgVideoRef.current) {
       bgVideoRef.current.src = activeTeaser.teaserUrl;
-      bgVideoRef.current.poster = getPoster(activeTeaser) ?? '';
+      bgVideoRef.current.poster = getPoster(activeTeaser);
       bgVideoRef.current.load();
       bgVideoRef.current.play().catch(() => {});
     }
@@ -92,9 +116,17 @@ export default function App() {
 
   useEffect(() => {
     setMobileIndex(0);
-    setSelectedProject(null);
     setHasSwipedOnce(false);
   }, [activeCategory]);
+
+  useEffect(() => {
+    if (selectedProject && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {});
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [selectedProject?.id]);
 
   useEffect(() => {
     filteredProjects.forEach((project, i) => {
@@ -110,40 +142,22 @@ export default function App() {
   }, [mobileIndex, filteredProjects]);
 
   const handleProjectClick = (project: Project) => {
-    setSelectedProject(project);
+    navigate(`/work/${project.id}`);
   };
 
   const handlePrev = () => {
     if (!selectedProject) return;
-    const currentIndex = filteredProjects.findIndex(p => p.id === selectedProject.id);
     const prevProject = filteredProjects[currentIndex - 1];
     if (prevProject) {
-      setSelectedProject(prevProject);
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.currentTime = 0;
-          videoRef.current.load();
-          videoRef.current.play();
-        }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 50);
+      navigate(`/work/${prevProject.id}`);
     }
   };
 
   const handleNext = () => {
     if (!selectedProject) return;
-    const currentIndex = filteredProjects.findIndex(p => p.id === selectedProject.id);
     const nextProject = filteredProjects[currentIndex + 1];
     if (nextProject) {
-      setSelectedProject(nextProject);
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.currentTime = 0;
-          videoRef.current.load();
-          videoRef.current.play();
-        }
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 50);
+      navigate(`/work/${nextProject.id}`);
     }
   };
 
@@ -153,21 +167,62 @@ export default function App() {
         if (isCreditsOpen) {
           setIsCreditsOpen(false);
           if (videoRef.current && !isNaN(videoRef.current.volume)) {
-            videoRef.current.volume = Math.min(1, videoRef.current.volume + 0.2);
+            videoRef.current.volume = preCreditsVolume.current;
           }
         } else if (selectedProject) {
-          setSelectedProject(null);
+          navigate(-1);
         } else if (isAboutOpen) {
-          setIsAboutOpen(false);
+          navigate(-1);
         }
+      }
+      if (e.key === 'ArrowLeft' && selectedProject) {
+        handlePrev();
+      }
+      if (e.key === 'ArrowRight' && selectedProject) {
+        handleNext();
       }
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isCreditsOpen, selectedProject, isAboutOpen]);
+  }, [isCreditsOpen, selectedProject, isAboutOpen, navigate, handlePrev, handleNext]);
 
   return (
     <div className="relative min-h-screen w-full bg-bg text-ink selection:bg-ink selection:text-bg">
+      <Helmet>
+        {selectedProject ? (
+          <>
+            <title>{selectedProject.name} — Janik Rai</title>
+            <meta name="description" content={`${selectedProject.name} for ${selectedProject.client}. Directed by Janik Rai.`} />
+            <meta property="og:title" content={`${selectedProject.name} — Janik Rai`} />
+            <meta property="og:description" content={`${selectedProject.name} for ${selectedProject.client}. Directed by Janik Rai.`} />
+            <meta property="og:image" content={selectedProject.stills?.[0] || 'https://janikrai.b-cdn.net/Stills/eternity/eternity1.jpg'} />
+            <meta property="og:url" content={`https://janikrai.com/work/${selectedProject.id}`} />
+            <meta property="og:type" content="video.other" />
+            <meta name="twitter:card" content="summary_large_image" />
+            <link rel="canonical" href={`https://janikrai.com/work/${selectedProject.id}`} />
+          </>
+        ) : isAboutOpen ? (
+          <>
+            <title>About — Janik Rai</title>
+            <meta name="description" content="Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally." />
+            <meta property="og:title" content="About — Janik Rai" />
+            <link rel="canonical" href="https://janikrai.com/info" />
+          </>
+        ) : (
+          <>
+            <title>Janik Rai — Commercial Director</title>
+            <meta name="description" content="Vancouver-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
+            <meta property="og:title" content="Janik Rai — Commercial Director" />
+            <meta property="og:description" content="Vancouver-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
+            <meta property="og:image" content="https://janikrai.b-cdn.net/Stills/eternity/eternity1.jpg" />
+            <meta property="og:url" content="https://janikrai.com" />
+            <meta property="og:type" content="website" />
+            <meta name="twitter:card" content="summary_large_image" />
+            <link rel="canonical" href="https://janikrai.com" />
+          </>
+        )}
+      </Helmet>
+
       {/* Navigation */}
       {/* Desktop Nav */}
       <nav className={`fixed top-0 left-0 z-[80] w-full px-6 md:px-10 py-4 md:py-6 bg-transparent transition-opacity duration-300 hidden md:flex ${selectedProject ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
@@ -176,7 +231,7 @@ export default function App() {
           <div className='flex gap-6 md:gap-10'>
             {isAboutOpen ? (
               <StrikeButton
-                onClick={() => setIsAboutOpen(false)}
+                onClick={() => navigate(-1)}
                 className='text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
               >
                 Close
@@ -186,7 +241,7 @@ export default function App() {
                 {CATEGORIES.map((cat) => (
                   <StrikeButton
                     key={cat}
-                    onClick={() => setActiveCategory(cat as Category)}
+                    onClick={() => navigate(cat === 'Archive' ? '/archive' : '/')}
                     className={`text-[16px] font-medium uppercase tracking-widest transition-opacity hover:opacity-100 ${
                       activeCategory === cat ? 'opacity-100' : 'opacity-75'
                     }`}
@@ -195,7 +250,7 @@ export default function App() {
                   </StrikeButton>
                 ))}
                 <StrikeButton
-                  onClick={() => setIsAboutOpen(true)}
+                  onClick={() => navigate('/info')}
                   className='text-[16px] font-medium uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
                 >
                   Info
@@ -208,9 +263,7 @@ export default function App() {
           <div className='absolute left-1/2 -translate-x-1/2 hidden md:block'>
             <button
               onClick={() => {
-                setActiveCategory('Selected');
-                setSelectedProject(null);
-                setIsAboutOpen(false);
+                navigate('/');
               }}
               className='text-[16px] font-bold uppercase tracking-[0.3em]'
             >
@@ -228,9 +281,7 @@ export default function App() {
       <div className={`fixed top-0 left-0 right-0 z-[80] flex md:hidden flex-col items-center pt-4 pb-3 bg-transparent transition-opacity duration-300 ${isAboutOpen || selectedProject ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <button
           onClick={() => {
-            setActiveCategory('Selected');
-            setSelectedProject(null);
-            setIsAboutOpen(false);
+            navigate('/');
           }}
           className='text-[17px] font-bold uppercase tracking-[0.3em] mb-4'
         >
@@ -240,7 +291,7 @@ export default function App() {
           {CATEGORIES.map((cat) => (
             <StrikeButton
               key={cat}
-              onClick={() => setActiveCategory(cat as Category)}
+              onClick={() => navigate(cat === 'Archive' ? '/archive' : '/')}
               className={`text-[14px] uppercase tracking-widest transition-opacity ${
                 activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-50'
               }`}
@@ -249,7 +300,7 @@ export default function App() {
             </StrikeButton>
           ))}
           <StrikeButton
-            onClick={() => setIsAboutOpen(true)}
+            onClick={() => navigate('/info')}
             className='text-[14px] uppercase tracking-widest opacity-50'
           >
             Info
@@ -268,6 +319,9 @@ export default function App() {
             {filteredProjects.map((project, index) => (
               <div
                 key={project.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(project); } }}
                 onMouseEnter={() => {
                   setHoveredProject(project);
                   setActiveTeaser(project);
@@ -285,7 +339,7 @@ export default function App() {
                     {(index + 1).toString().padStart(2, '0')}
                   </span>
                   
-                  <h2 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className={`text-[15px] uppercase tracking-[0.1em] transition-all duration-300 ${
+                  <h2 className={`text-[15px] uppercase tracking-[0.1em] font-display transition-all duration-300 ${
                     hoveredProject?.id === project.id
                       ? 'text-ink font-bold'
                       : 'text-ink/60 group-hover:text-ink/70 font-bold'
@@ -325,6 +379,9 @@ export default function App() {
                 {filteredProjects.map((project) => (
                   <div
                     key={project.id}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(project); } }}
                     className='relative aspect-video cursor-pointer overflow-hidden'
                     onClick={() => handleProjectClick(project)}
                   >
@@ -367,10 +424,13 @@ export default function App() {
                   <div className='absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/40' />
                   <div
                     className='absolute inset-0 flex flex-col items-center justify-center px-8'
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(project); } }}
                     onClick={() => handleProjectClick(project)}
                   >
                     <p className='text-[11px] uppercase tracking-[0.3em] opacity-50 mb-3'>{project.client}</p>
-                    <h2 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-xl uppercase tracking-[0.15em] font-bold text-center'>
+                    <h2 className='text-xl uppercase tracking-[0.15em] font-bold text-center font-display'>
                       {project.name}
                     </h2>
                   </div>
@@ -440,10 +500,11 @@ export default function App() {
               {selectedProject.credits && selectedProject.credits.trim() !== '' && (
                 <StrikeButton
                   onClick={() => {
-                    setIsCreditsOpen(true);
-                    if (videoRef.current && !isNaN(videoRef.current.volume)) {
-                      videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
+                    if (videoRef.current) {
+                      preCreditsVolume.current = videoRef.current.volume;
+                      videoRef.current.volume = Math.max(0, videoRef.current.volume * 0.5);
                     }
+                    setIsCreditsOpen(true);
                   }}
                   className='text-[13px] uppercase tracking-widest opacity-75'
                 >
@@ -451,9 +512,9 @@ export default function App() {
                 </StrikeButton>
               )}
               {(!selectedProject.credits || selectedProject.credits.trim() === '') && <div />}
-              <p style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[13px] uppercase tracking-[0.2em] font-bold absolute left-1/2 -translate-x-1/2'>{selectedProject.name}</p>
+              <p className='text-[13px] uppercase tracking-[0.2em] font-bold absolute left-1/2 -translate-x-1/2 font-display'>{selectedProject.name}</p>
               <StrikeButton
-                onClick={() => { setSelectedProject(null); setIsCreditsOpen(false); }}
+                onClick={() => { navigate(-1); setIsCreditsOpen(false); }}
                 className='text-[13px] uppercase tracking-widest opacity-75'
               >
                 Close
@@ -464,7 +525,7 @@ export default function App() {
               <div className='flex items-center gap-10'>
                 <StrikeButton
                   onClick={() => {
-                    setSelectedProject(null);
+                    navigate(-1);
                     setIsCreditsOpen(false);
                   }}
                   className='text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
@@ -474,10 +535,11 @@ export default function App() {
                 {selectedProject.credits && selectedProject.credits.trim() !== '' && (
                   <StrikeButton
                     onClick={() => {
-                      setIsCreditsOpen(true);
-                      if (videoRef.current && !isNaN(videoRef.current.volume)) {
-                        videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
+                      if (videoRef.current) {
+                        preCreditsVolume.current = videoRef.current.volume;
+                        videoRef.current.volume = Math.max(0, videoRef.current.volume * 0.5);
                       }
+                      setIsCreditsOpen(true);
                     }}
                     className='text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
                   >
@@ -486,7 +548,7 @@ export default function App() {
                 )}
               </div>
               <div className='absolute left-1/2 -translate-x-1/2 text-center pointer-events-none'>
-                <p style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[16px] uppercase tracking-[0.2em] font-bold'>{selectedProject.name}</p>
+                <p className='text-[16px] uppercase tracking-[0.2em] font-bold font-display'>{selectedProject.name}</p>
               </div>
               <div />
             </div>
@@ -496,7 +558,7 @@ export default function App() {
                 <StrikeButton
                   onClick={handlePrev}
                   className={`hidden md:flex absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity ${
-                    filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
+                    !hasPrev ? 'invisible' : ''
                   }`}
                 >
                   Prev
@@ -524,7 +586,7 @@ export default function App() {
                   <StrikeButton
                     onClick={handlePrev}
                     className={`text-[13px] uppercase tracking-widest opacity-75 ${
-                      filteredProjects.findIndex(p => p.id === selectedProject.id) === 0 ? 'invisible' : ''
+                      !hasPrev ? 'invisible' : ''
                     }`}
                   >
                     Prev
@@ -532,7 +594,7 @@ export default function App() {
                   <StrikeButton
                     onClick={handleNext}
                     className={`text-[13px] uppercase tracking-widest opacity-75 ${
-                      filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
+                      !hasNext ? 'invisible' : ''
                     }`}
                   >
                     Next
@@ -542,7 +604,7 @@ export default function App() {
                 <StrikeButton
                   onClick={handleNext}
                   className={`hidden md:flex absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[16px] uppercase tracking-widest opacity-50 hover:opacity-100 transition-opacity ${
-                    filteredProjects.findIndex(p => p.id === selectedProject.id) === filteredProjects.length - 1 ? 'invisible' : ''
+                    !hasNext ? 'invisible' : ''
                   }`}
                 >
                   Next
@@ -559,7 +621,7 @@ export default function App() {
                         src={still}
                         width='800'
                         height='450'
-                        alt={`Still ${idx + 1}`}
+                        alt={`${selectedProject.name} for ${selectedProject.client} — production still ${idx + 1}`}
                         className="w-full aspect-video object-cover bg-white/5"
                         referrerPolicy="no-referrer"
                         initial={{ opacity: 0, y: 20 }}
@@ -592,13 +654,16 @@ export default function App() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setIsCreditsOpen(false);
+                      if (videoRef.current && !isNaN(videoRef.current.volume)) {
+                        videoRef.current.volume = preCreditsVolume.current;
+                      }
                     }}
                     className='absolute top-6 left-6 md:top-10 md:left-10 text-[14px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
                   >
                     Close
                   </button>
                   <div className='flex flex-col md:hidden w-full px-6 py-10 overflow-y-auto max-h-[80vh]' onClick={(e) => e.stopPropagation()}>
-                    <h4 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[14px] uppercase tracking-[0.5em] font-bold mb-8'>Credits</h4>
+                    <h4 className='text-[14px] uppercase tracking-[0.5em] font-bold mb-8 font-display'>Credits</h4>
                     <div className='flex flex-col gap-5'>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
                         const colonIndex = line.indexOf(':');
@@ -617,7 +682,7 @@ export default function App() {
                       onClick={() => {
                         setIsCreditsOpen(false);
                         if (videoRef.current && !isNaN(videoRef.current.volume)) {
-                          videoRef.current.volume = Math.min(1, videoRef.current.volume + 0.2);
+                          videoRef.current.volume = preCreditsVolume.current;
                         }
                       }}
                     >
@@ -629,7 +694,7 @@ export default function App() {
                     className='hidden md:block max-w-3xl w-full px-16 py-14 rounded-sm'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <h4 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[15px] uppercase tracking-[0.5em] font-bold mb-12'>Credits</h4>
+                    <h4 className='text-[15px] uppercase tracking-[0.5em] font-bold mb-12 font-display'>Credits</h4>
                     <div className='grid gap-y-4' style={{ gridTemplateColumns: '1fr 1fr' }}>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
                         const colonIndex = line.indexOf(':');
@@ -659,12 +724,12 @@ export default function App() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[70] flex items-center justify-center bg-bg/85 backdrop-blur-sm"
-            onClick={() => setIsAboutOpen(false)}
+            onClick={() => navigate(-1)}
           >
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setIsAboutOpen(false);
+                navigate(-1);
               }}
               className='flex md:hidden absolute top-6 right-6 text-[14px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
             >
@@ -673,7 +738,7 @@ export default function App() {
             <div className='w-full px-6 pt-24 pb-10 flex flex-col gap-10 lg:hidden' onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col gap-4'>
                 <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
-                <div style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='flex flex-col gap-6 text-[13px] uppercase tracking-[0.15em] leading-loose opacity-100'>
+                <div className='flex flex-col gap-6 text-[13px] uppercase tracking-[0.15em] leading-loose opacity-100 font-display'>
                   <p>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
                   <p>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
                 </div>
@@ -690,7 +755,7 @@ export default function App() {
               <div className='flex flex-col gap-12'>
                 <div className='flex flex-col gap-6'>
                   <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
-                  <div style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='flex flex-col gap-6 text-[14px] uppercase tracking-[0.2em] leading-loose opacity-100'>
+                  <div className='flex flex-col gap-6 text-[14px] uppercase tracking-[0.2em] leading-loose opacity-100 font-display'>
                     <p>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
                     <p>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
                   </div>
