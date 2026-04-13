@@ -419,6 +419,7 @@ export default function App() {
                 </StrikeButton>
               )}
               {(!selectedProject.credits || selectedProject.credits.trim() === '') && <div />}
+              <p className='text-[13px] uppercase tracking-[0.2em] font-bold absolute left-1/2 -translate-x-1/2'>{selectedProject.name}</p>
               <StrikeButton
                 onClick={() => { setSelectedProject(null); setIsCreditsOpen(false); }}
                 className='text-[13px] uppercase tracking-widest opacity-75'
