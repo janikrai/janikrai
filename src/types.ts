@@ -6,7 +6,6 @@ export interface Project {
   videoUrl: string;
   teaserUrl: string;
   ratio: 'contain' | 'cover';
-  hasAwards?: boolean;
   laurelUrls?: string[];
   credits?: string;
   stills?: string[];

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { PROJECTS, CATEGORIES } from './constants';
 import { Project, Category } from './types';
@@ -7,7 +7,7 @@ function StrikeButton({ children, onClick, className, disabled }: { children: Re
   return (
     <button
       onClick={onClick}
-      className={`group ${className} ${disabled ? 'pointer-events-none' : ''}`}
+      className={`group ${className}`}
       disabled={disabled}
     >
       <span className='relative inline-block'>
@@ -33,7 +33,10 @@ export default function App() {
   const touchStartY = useRef<number | null>(null);
   const touchEndY = useRef<number | null>(null);
 
-  const filteredProjects = PROJECTS.filter(p => p.tags.includes(activeCategory));
+  const filteredProjects = useMemo(
+    () => PROJECTS.filter(p => p.tags.includes(activeCategory)),
+    [activeCategory]
+  );
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -56,6 +59,16 @@ export default function App() {
   };
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (bgVideoRef.current) {
+      bgVideoRef.current.src = activeTeaser.teaserUrl;
+      bgVideoRef.current.poster = getPoster(activeTeaser) ?? '';
+      bgVideoRef.current.load();
+      bgVideoRef.current.play().catch(() => {});
+    }
+  }, [activeTeaser]);
 
   useEffect(() => {
     const preloadedVideos: HTMLVideoElement[] = [];
@@ -80,7 +93,21 @@ export default function App() {
   useEffect(() => {
     setMobileIndex(0);
     setSelectedProject(null);
+    setHasSwipedOnce(false);
   }, [activeCategory]);
+
+  useEffect(() => {
+    filteredProjects.forEach((project, i) => {
+      const videoEl = document.getElementById(`mobile-video-${project.id}`) as HTMLVideoElement;
+      if (videoEl) {
+        if (i === mobileIndex) {
+          videoEl.play().catch(() => {});
+        } else {
+          videoEl.pause();
+        }
+      }
+    });
+  }, [mobileIndex, filteredProjects]);
 
   const handleProjectClick = (project: Project) => {
     setSelectedProject(project);
@@ -125,7 +152,9 @@ export default function App() {
       if (e.key === 'Escape') {
         if (isCreditsOpen) {
           setIsCreditsOpen(false);
-          if (videoRef.current) videoRef.current.volume = Math.min(1, videoRef.current.volume + 0.2);
+          if (videoRef.current && !isNaN(videoRef.current.volume)) {
+            videoRef.current.volume = Math.min(1, videoRef.current.volume + 0.2);
+          }
         } else if (selectedProject) {
           setSelectedProject(null);
         } else if (isAboutOpen) {
@@ -327,6 +356,7 @@ export default function App() {
                   style={{ opacity: i === mobileIndex ? 1 : 0, pointerEvents: i === mobileIndex ? 'auto' : 'none' }}
                 >
                   <video
+                    id={`mobile-video-${project.id}`}
                     src={project.teaserUrl}
                     autoPlay
                     muted
@@ -366,9 +396,7 @@ export default function App() {
       {/* Background Video */}
       <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden' }} className="hidden md:block z-0 pointer-events-none">
         <video
-          key={activeTeaser.id}
-          src={activeTeaser.teaserUrl}
-          poster={getPoster(activeTeaser)}
+          ref={bgVideoRef}
           autoPlay
           muted
           loop
@@ -413,7 +441,9 @@ export default function App() {
                 <StrikeButton
                   onClick={() => {
                     setIsCreditsOpen(true);
-                    if (videoRef.current) videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
+                    if (videoRef.current && !isNaN(videoRef.current.volume)) {
+                      videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
+                    }
                   }}
                   className='text-[13px] uppercase tracking-widest opacity-75'
                 >
@@ -430,7 +460,7 @@ export default function App() {
               </StrikeButton>
             </div>
 
-            <div className='hidden md:flex sticky top-0 z-[80] relative items-center justify-between p-6 md:p-10 bg-transparent'>
+            <div className='hidden md:flex sticky top-0 z-[80] items-center justify-between p-6 md:p-10 bg-transparent'>
               <div className='flex items-center gap-10'>
                 <StrikeButton
                   onClick={() => {
@@ -445,7 +475,9 @@ export default function App() {
                   <StrikeButton
                     onClick={() => {
                       setIsCreditsOpen(true);
-                      if (videoRef.current) videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
+                      if (videoRef.current && !isNaN(videoRef.current.volume)) {
+                        videoRef.current.volume = Math.max(0, videoRef.current.volume - 0.2);
+                      }
                     }}
                     className='text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
                   >
@@ -569,7 +601,9 @@ export default function App() {
                     <h4 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[14px] uppercase tracking-[0.5em] font-bold mb-8'>Credits</h4>
                     <div className='flex flex-col gap-5'>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
-                        const [role, name] = line.split(':').map(s => s.trim());
+                        const colonIndex = line.indexOf(':');
+                        const role = line.substring(0, colonIndex).trim();
+                        const name = line.substring(colonIndex + 1).trim();
                         return (
                           <div key={`credit-${i}`} className='flex flex-col gap-1'>
                             <span className='text-[10px] uppercase tracking-[0.2em] opacity-70'>{role}</span>
@@ -580,7 +614,12 @@ export default function App() {
                     </div>
                     <button
                       className='mt-10 text-[12px] uppercase tracking-widest opacity-75 text-left'
-                      onClick={() => setIsCreditsOpen(false)}
+                      onClick={() => {
+                        setIsCreditsOpen(false);
+                        if (videoRef.current && !isNaN(videoRef.current.volume)) {
+                          videoRef.current.volume = Math.min(1, videoRef.current.volume + 0.2);
+                        }
+                      }}
                     >
                       Close
                     </button>
@@ -593,7 +632,9 @@ export default function App() {
                     <h4 style={{ fontFamily: 'Courier Prime, Courier New, monospace' }} className='text-[15px] uppercase tracking-[0.5em] font-bold mb-12'>Credits</h4>
                     <div className='grid gap-y-4' style={{ gridTemplateColumns: '1fr 1fr' }}>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
-                        const [role, name] = line.split(':').map(s => s.trim());
+                        const colonIndex = line.indexOf(':');
+                        const role = line.substring(0, colonIndex).trim();
+                        const name = line.substring(colonIndex + 1).trim();
                         return (
                           <div key={`credit-${i}`} className="contents">
                             <span className='text-[16px] uppercase tracking-[0.15em] opacity-75 font-normal'>{role}</span>
@@ -621,7 +662,10 @@ export default function App() {
             onClick={() => setIsAboutOpen(false)}
           >
             <button
-              onClick={() => setIsAboutOpen(false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsAboutOpen(false);
+              }}
               className='flex md:hidden absolute top-6 right-6 text-[14px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
             >
               Close

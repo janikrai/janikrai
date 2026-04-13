@@ -6,10 +6,9 @@ export const PROJECTS: Project[] = [
   name: "Director's Reel",
   client: 'Janik Rai',
   tags: ['Archive'],
-  videoUrl: "https://janikrai.b-cdn.net/Final%20Films/director's-reel.mp4",
+  videoUrl: "https://janikrai.b-cdn.net/Final%20Films/directors-reel.mp4",
   teaserUrl: 'https://janikrai.b-cdn.net/Teasers/directors-reel.mp4',
   ratio: 'cover',
-  hasAwards: false,
   credits: '',
   stills: []
 },
@@ -21,7 +20,6 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/farm-to-table.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/farm-to-table.mp4',
     ratio: 'contain',
-    hasAwards: true,
     laurelUrls: [
       'https://janikrai.b-cdn.net/Laurels/IMG_0451.png'
     ],
@@ -49,7 +47,6 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/eternity.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/eternity.mp4',
     ratio: 'contain',
-    hasAwards: true,
     laurelUrls: [
       'https://janikrai.b-cdn.net/Laurels/1.4%20LONGLIST%20LAUREL-GOLD.png',
       'https://janikrai.b-cdn.net/Laurels/IMG_1584-modified.png',
@@ -69,12 +66,11 @@ export const PROJECTS: Project[] = [
   {
     id: 'stillness',
     name: 'Stillness',
-    client: 'Short Film',
+    client: 'Narrative',
     tags: ['Selected', 'Archive'],
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/stillness.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/stillness.mp4',
     ratio: 'cover',
-    hasAwards: false,
     credits: 'Director: Janik Rai\nDirector of Photography: Chris Ajtony\nMacro Director of Photography: Nate Magnuson\nEditor: Janik Rai & Davanè\nColour: João Homem\nComposer & Sound: Yetsho\nVFX: Davanè',
     stills: [
       'https://janikrai.b-cdn.net/Stills/stillness/Meditation1.jpeg',
@@ -91,7 +87,6 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/barcelos.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/barcelos.mp4',
     ratio: 'contain',
-    hasAwards: false,
     credits: 'Director: Janik Rai\nProducer: Dhun Sharma & Sagar Deol\nDirector of Photography: Chris Ajtony\nGaffer: Mike Pintea\nKey Grip: Dayton Lewis\nFirst Assistant Camera: Miguel M\nEditor: Hayley Sawatzky\nMusic: Glyn Allen\nColour: João Homem\nCamera: Keslow Camera',
     stills: [
       'https://janikrai.b-cdn.net/Stills/Barcelos/barcelos_1.jpg',
@@ -112,7 +107,6 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/light-betwee-us.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/light-between-us.mp4',
     ratio: 'contain',
-    hasAwards: false,
     credits: 'Writer & Director: Janik Rai\nProducer: Marcus Fang & Antony Packer\nDirector of Photography: Chris Ajtony\nGaffer: Peter Pham\nKey Grip: Alessandro Guerrera\nAC: Alessio Trani\nProduction Designer: Jasleen Notay\nEdit: Janik Rai & Davané\nMusic: Landon Trimble\nSound: Kevin Parker & Lucifer Media Labs\nColour: Joao Homem\nVFX: Navi Joshi\nBTS: Noah Pope\nProduction Company: Workshop Film Company',
     stills: [
       'https://janikrai.b-cdn.net/Stills/light-between-us/Nanak_Diwali1.jpg',
@@ -133,7 +127,6 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/push.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/push.mp4',
     ratio: 'cover',
-    hasAwards: false,
     credits: 'Director: Janik Rai\nProducer: Sagar Deol\nDirector of Photography: Nate Magnuson\nEditor: Jeremy Chen\nColour: NMV Film Co.\nComposer & Sound: Glyn Allen\nVFX: Michael Gladkey\nB Camera Operator: Mitchell Cook\n1st AC: Dayton Lewis\n1st AC: Alex Chan\nGaffer: Robert Zastre\nLX Swing: Marcos G\nKey Grip: Kyle Wasylowich\nRigging Grip: James Glezos\nSet Designer: Rebekah G\nBTS: Oliver Cao\nCamera Rental: NMV Film Co.',
     stills: [
       'https://janikrai.b-cdn.net/Stills/push/push_1.jpg',
@@ -150,7 +143,6 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/still-close.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/still-close.mp4',
     ratio: 'contain',
-    hasAwards: false,
     credits: 'Writer & Director: Janik Rai\nDirector of Photography: Jan Klompje\nAC: Sagar Deol\nArt Director: Deep Dhillon\nProduction Manager: Parm Sidhu\nEdit: Janik Rai & Davané\nSound: Lucifer Media Labs\nColour: Joao Homem\nBTS: Khush Sandhu',
     stills: [
       'https://janikrai.b-cdn.net/Stills/still-close/still-close_1.jpeg',
@@ -166,12 +158,11 @@ export const PROJECTS: Project[] = [
   {
     id: 'bliss',
     name: 'Bliss',
-    client: 'Short Film',
+    client: 'Narrative',
     tags: ['Archive'],
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/bliss.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/bliss.mp4',
     ratio: 'contain',
-    hasAwards: false,
     credits: 'Director: Janik Rai\nProducer: Sagar Deol\nDirector of Photography: Nate Magnuson\nEditor: Janik Rai & Jeremy Chen\nColour: João Homem\nComposer: Glyn Allen\nSound: Jordan Burgess',
     stills: [
       'https://janikrai.b-cdn.net/Stills/bliss/Bliss1.jpg',
@@ -192,7 +183,6 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/life-at-sea.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/life-at-sea.mp4',
     ratio: 'cover',
-    hasAwards: false,
     credits: 'Director & DP: Janik Rai\nEditor: Jeremy Chen',
     stills: [
       'https://janikrai.b-cdn.net/Stills/life-at-sea/life-at-sea_1.jpg',
