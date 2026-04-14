@@ -232,7 +232,7 @@ function MainView() {
             {isAboutOpen ? (
               <StrikeButton
                 onClick={() => navigate(-1)}
-                className='text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
+                className='text-[16px] uppercase tracking-widest opacity-85 hover:opacity-100 transition-opacity'
               >
                 Close
               </StrikeButton>
@@ -243,7 +243,7 @@ function MainView() {
                     key={cat}
                     onClick={() => navigate(cat === 'Archive' ? '/archive' : '/')}
                     className={`text-[16px] font-medium uppercase tracking-widest transition-opacity hover:opacity-100 ${
-                      activeCategory === cat ? 'opacity-100' : 'opacity-75'
+                      activeCategory === cat ? 'opacity-100' : 'opacity-85'
                     }`}
                   >
                     {cat}
@@ -251,7 +251,7 @@ function MainView() {
                 ))}
                 <StrikeButton
                   onClick={() => navigate('/info')}
-                  className='text-[16px] font-medium uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
+                  className='text-[16px] font-medium uppercase tracking-widest opacity-85 hover:opacity-100 transition-opacity'
                 >
                   Info
                 </StrikeButton>
@@ -293,7 +293,7 @@ function MainView() {
               key={cat}
               onClick={() => navigate(cat === 'Archive' ? '/archive' : '/')}
               className={`text-[14px] uppercase tracking-widest transition-opacity ${
-                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-50'
+                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-65'
               }`}
             >
               {cat}
@@ -301,7 +301,7 @@ function MainView() {
           ))}
           <StrikeButton
             onClick={() => navigate('/info')}
-            className='text-[14px] uppercase tracking-widest opacity-50'
+            className='text-[14px] uppercase tracking-widest opacity-65'
           >
             Info
           </StrikeButton>
@@ -330,11 +330,11 @@ function MainView() {
                 onClick={() => handleProjectClick(project)}
                 className="group flex cursor-pointer items-baseline justify-start gap-4 py-0 transition-colors"
               >
-                <div className="grid items-baseline" style={{ gridTemplateColumns: '2rem minmax(12rem, auto) 1rem minmax(8rem, auto)' }}>
+                <div className="grid items-baseline leading-snug" style={{ gridTemplateColumns: '2rem minmax(12rem, auto) 1rem minmax(8rem, auto)' }}>
                   <span className={`text-[14px] font-mono transition-all duration-300 ${
                     hoveredProject?.id === project.id 
                       ? 'text-ink/75 line-through decoration-ink/75' 
-                      : 'text-ink/50'
+                      : 'text-ink/65'
                   }`}>
                     {(index + 1).toString().padStart(2, '0')}
                   </span>
@@ -342,7 +342,7 @@ function MainView() {
                   <h2 className={`text-[15px] uppercase tracking-[0.1em] font-display transition-all duration-300 ${
                     hoveredProject?.id === project.id
                       ? 'text-ink font-bold'
-                      : 'text-ink/60 group-hover:text-ink/70 font-bold'
+                      : 'text-ink/75 group-hover:text-ink/85 font-bold'
                   }`}>
                     {project.name}
                   </h2>
@@ -361,7 +361,7 @@ function MainView() {
                   <span className={`text-[15px] uppercase tracking-[0.1em] transition-all duration-300 ${
                     hoveredProject?.id === project.id 
                       ? 'text-ink/75' 
-                      : 'text-ink/50 group-hover:text-ink/75'
+                      : 'text-ink/65 group-hover:text-ink/85'
                   }`}>
                     {project.client}
                   </span>
@@ -385,16 +385,18 @@ function MainView() {
                     className='relative aspect-video cursor-pointer overflow-hidden'
                     onClick={() => handleProjectClick(project)}
                   >
-                    <img
-                      src={project.stills?.[0] ?? project.teaserUrl}
-                      alt={project.name}
+                    <video
+                      src={project.teaserUrl}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
                       className='absolute inset-0 w-full h-full object-cover'
-                      loading='lazy'
                     />
                     <div className='absolute inset-0 bg-black/55' />
                     <div className='absolute inset-0 flex flex-col items-start justify-end p-2'>
                       <p className='text-[9px] uppercase tracking-[0.2em] opacity-75 leading-none mb-1'>{project.client}</p>
-                      <h3 className='text-[11px] uppercase tracking-[0.1em] font-bold leading-tight'>{project.name}</h3>
+                      <h3 className='text-[11px] uppercase tracking-[0.1em] font-bold leading-tight font-display'>{project.name}</h3>
                     </div>
                   </div>
                 ))}
@@ -671,7 +673,7 @@ function MainView() {
                         const name = line.substring(colonIndex + 1).trim();
                         return (
                           <div key={`credit-${i}`} className='flex flex-col gap-1'>
-                            <span className='text-[10px] uppercase tracking-[0.2em] opacity-70'>{role}</span>
+                            <span className='text-[10px] uppercase tracking-[0.2em] opacity-80'>{role}</span>
                             <span className='text-[12px] uppercase tracking-[0.15em] font-bold opacity-100'>{name}</span>
                           </div>
                         );
@@ -702,7 +704,7 @@ function MainView() {
                         const name = line.substring(colonIndex + 1).trim();
                         return (
                           <div key={`credit-${i}`} className="contents">
-                            <span className='text-[16px] uppercase tracking-[0.15em] opacity-75 font-normal'>{role}</span>
+                            <span className='text-[16px] uppercase tracking-[0.15em] opacity-85 font-normal'>{role}</span>
                             <span className='text-[16px] uppercase tracking-[0.15em] opacity-100 font-bold text-right'>{name}</span>
                           </div>
                         );
@@ -737,14 +739,14 @@ function MainView() {
             </button>
             <div className='w-full px-6 pt-24 pb-10 flex flex-col gap-10 lg:hidden' onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col gap-4'>
-                <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
+                <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-80 font-bold'>Bio</h4>
                 <div className='flex flex-col gap-6 text-[13px] uppercase tracking-[0.15em] leading-loose opacity-100 font-display'>
                   <p>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
                   <p>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
                 </div>
               </div>
               <div className='flex flex-col gap-4'>
-                <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-70 font-bold'>Contact</h4>
+                <h4 className='text-[15px] uppercase tracking-[0.5em] opacity-80 font-bold'>Contact</h4>
                 <a href='mailto:contact@janikrai.com' className='text-[13px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
                 <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[13px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>Vimeo</a>
                 <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[13px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>Instagram</a>
@@ -754,14 +756,14 @@ function MainView() {
             <div className='hidden lg:block w-full max-w-2xl' style={{ marginTop: '-35vh', paddingLeft: '2.5rem' }} onClick={(e) => e.stopPropagation()}>
               <div className='flex flex-col gap-12'>
                 <div className='flex flex-col gap-6'>
-                  <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-70 font-bold'>Bio</h4>
+                  <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-80 font-bold'>Bio</h4>
                   <div className='flex flex-col gap-6 text-[14px] uppercase tracking-[0.2em] leading-loose opacity-100 font-display'>
                     <p>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
                     <p>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
                   </div>
                 </div>
                 <div className='flex flex-col gap-4'>
-                  <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-70 font-bold'>Contact</h4>
+                  <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-80 font-bold'>Contact</h4>
                   <div className='flex flex-col gap-3'>
                     <a href='mailto:contact@janikrai.com' className='text-[14px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
                     <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' className='text-[14px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity'>Vimeo</a>
