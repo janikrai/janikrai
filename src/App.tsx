@@ -22,6 +22,61 @@ function StrikeButton({ children, onClick, className, disabled }: { children: Re
 
 const getPoster = (project: Project) => project.stills?.[0] ?? '';
 
+function ArchiveTile({ project, handleProjectClick, observer }: { project: Project, handleProjectClick: (p: Project) => void, observer: IntersectionObserver | null }) {
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const currentVideo = videoRef.current;
+    if (currentVideo && observer) {
+      observer.observe(currentVideo);
+    }
+    return () => {
+      if (currentVideo && observer) {
+        observer.unobserve(currentVideo);
+      }
+    };
+  }, [observer]);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(project); } }}
+      className='relative aspect-video cursor-pointer overflow-hidden'
+      onClick={() => handleProjectClick(project)}
+    >
+      <img
+        src={project.stills?.[0] ?? project.teaserUrl}
+        alt={project.name}
+        className='absolute inset-0 w-full h-full object-cover'
+      />
+      <video
+        ref={videoRef}
+        src={project.teaserUrl}
+        poster={project.stills?.[0] ?? ''}
+        muted
+        loop
+        playsInline
+        preload="none"
+        onCanPlayThrough={(e) => {
+          setIsVideoReady(true);
+          if (e.currentTarget.dataset.inView === 'true') {
+            e.currentTarget.play().catch(() => {});
+          }
+        }}
+        className='absolute inset-0 w-full h-full object-cover transition-opacity duration-700'
+        style={{ opacity: isVideoReady ? 1 : 0 }}
+      />
+      <div className='absolute inset-0 bg-black/55' />
+      <div className='absolute inset-0 flex flex-col items-start justify-end p-2'>
+        <p className='text-[9px] uppercase tracking-[0.2em] opacity-75 leading-none mb-1'>{project.client}</p>
+        <h3 className='text-[11px] uppercase tracking-[0.1em] font-bold leading-tight font-display'>{project.name}</h3>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <Routes>
@@ -84,6 +139,30 @@ function MainView() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
+  const [archiveObserver, setArchiveObserver] = useState<IntersectionObserver | null>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target as HTMLVideoElement;
+          if (entry.isIntersecting) {
+            video.dataset.inView = 'true';
+            video.preload = "auto";
+            if (video.readyState >= 3) {
+              video.play().catch(() => {});
+            }
+          } else {
+            video.dataset.inView = 'false';
+            video.pause();
+          }
+        });
+      },
+      { rootMargin: '200px' }
+    );
+    setArchiveObserver(observer);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (bgVideoRef.current) {
@@ -377,28 +456,12 @@ function MainView() {
             <div className={`fixed inset-0 overflow-y-auto z-10 px-3 pt-24 pb-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
               <div className='grid grid-cols-2 gap-2'>
                 {filteredProjects.map((project) => (
-                  <div
+                  <ArchiveTile
                     key={project.id}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleProjectClick(project); } }}
-                    className='relative aspect-video cursor-pointer overflow-hidden'
-                    onClick={() => handleProjectClick(project)}
-                  >
-                    <video
-                      src={project.teaserUrl}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      className='absolute inset-0 w-full h-full object-cover'
-                    />
-                    <div className='absolute inset-0 bg-black/55' />
-                    <div className='absolute inset-0 flex flex-col items-start justify-end p-2'>
-                      <p className='text-[9px] uppercase tracking-[0.2em] opacity-75 leading-none mb-1'>{project.client}</p>
-                      <h3 className='text-[11px] uppercase tracking-[0.1em] font-bold leading-tight font-display'>{project.name}</h3>
-                    </div>
-                  </div>
+                    project={project}
+                    handleProjectClick={handleProjectClick}
+                    observer={archiveObserver}
+                  />
                 ))}
               </div>
             </div>
