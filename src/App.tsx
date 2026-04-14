@@ -38,6 +38,13 @@ function ArchiveTile({ project, handleProjectClick, observer }: { project: Proje
     };
   }, [observer]);
 
+  const handlePlayState = () => {
+    setIsVideoReady(true);
+    if (videoRef.current?.dataset.inView === 'true') {
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
   return (
     <div
       role="button"
@@ -59,12 +66,9 @@ function ArchiveTile({ project, handleProjectClick, observer }: { project: Proje
         loop
         playsInline
         preload="none"
-        onCanPlayThrough={(e) => {
-          setIsVideoReady(true);
-          if (e.currentTarget.dataset.inView === 'true') {
-            e.currentTarget.play().catch(() => {});
-          }
-        }}
+        onCanPlay={handlePlayState}
+        onWaiting={() => {}}
+        onPlaying={() => setIsVideoReady(true)}
         className='absolute inset-0 w-full h-full object-cover transition-opacity duration-700'
         style={{ opacity: isVideoReady ? 1 : 0 }}
       />
@@ -139,9 +143,15 @@ function MainView() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
+  const archiveContainerRef = useRef<HTMLDivElement>(null);
   const [archiveObserver, setArchiveObserver] = useState<IntersectionObserver | null>(null);
 
   useEffect(() => {
+    if (activeCategory !== 'Archive') {
+      setArchiveObserver(null);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -149,20 +159,21 @@ function MainView() {
           if (entry.isIntersecting) {
             video.dataset.inView = 'true';
             video.preload = "auto";
-            if (video.readyState >= 3) {
-              video.play().catch(() => {});
-            }
+            video.play().catch(() => {});
           } else {
             video.dataset.inView = 'false';
             video.pause();
           }
         });
       },
-      { rootMargin: '200px' }
+      { 
+        root: archiveContainerRef.current,
+        rootMargin: '200px' 
+      }
     );
     setArchiveObserver(observer);
     return () => observer.disconnect();
-  }, []);
+  }, [activeCategory]);
 
   useEffect(() => {
     if (bgVideoRef.current) {
@@ -453,7 +464,10 @@ function MainView() {
         {/* Mobile Project Browsing */}
         <div className="md:hidden">
           {activeCategory === 'Archive' ? (
-            <div className={`fixed inset-0 overflow-y-auto z-10 px-3 pt-24 pb-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+            <div 
+              ref={archiveContainerRef}
+              className={`fixed inset-0 overflow-y-auto z-10 px-3 pt-24 pb-10 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+            >
               <div className='grid grid-cols-2 gap-2'>
                 {filteredProjects.map((project) => (
                   <ArchiveTile
