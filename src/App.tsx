@@ -14,7 +14,7 @@ function StrikeButton({ children, onClick, className, disabled }: { children: Re
     >
       <span className='relative inline-block'>
         {children}
-        <span className='absolute left-0 top-1/2 h-[1px] bg-current transition-all duration-300 ease-out w-0 group-hover:w-full' />
+        <span className='absolute left-0 top-1/2 h-[2px] bg-current transition-all duration-300 ease-out w-0 group-hover:w-full' />
       </span>
     </button>
   );
