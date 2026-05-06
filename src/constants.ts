@@ -64,10 +64,30 @@ export const PROJECTS: Project[] = [
     ]
   },
   {
+  id: 'for-her',
+  name: 'For Her',
+  client: 'Love Life ALS',
+  tags: ['Selected', 'Archive'],
+  videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/for-her.mp4',
+  teaserUrl: 'https://janikrai.b-cdn.net/Teasers/for-her.mp4',
+  ratio: 'contain',
+  credits: 'EP: Glenn Love\nDirector: Janik Rai\nDirector of Photography: Chris Ajtony\n1st AC: Ronald Lee\nGaffer: Luke Hubner\nSwing: Peter Yu\nProduction Design: Alyssa Thomas\nEditor: Davane\nSound: Jonathan K\nColour: So Young Park\nCasting Director: Snejina Stoilova\nCasting Agency: Alaeria Artists',
+  stills: [
+    'https://janikrai.b-cdn.net/Stills/for-her/for-her1.jpeg',
+    'https://janikrai.b-cdn.net/Stills/for-her/for-her2.jpeg',
+    'https://janikrai.b-cdn.net/Stills/for-her/for-her3.jpeg',
+    'https://janikrai.b-cdn.net/Stills/for-her/for-her4.jpeg',
+    'https://janikrai.b-cdn.net/Stills/for-her/for-her5.jpeg',
+    'https://janikrai.b-cdn.net/Stills/for-her/for-her6.jpeg',
+    'https://janikrai.b-cdn.net/Stills/for-her/for-her7.jpeg',
+    'https://janikrai.b-cdn.net/Stills/for-her/for-her8.jpeg'
+  ]
+},
+  {
     id: 'stillness',
     name: 'Stillness',
     client: 'Narrative',
-    tags: ['Selected', 'Archive'],
+    tags: ['Archive'],
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/stillness.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/stillness.mp4',
     ratio: 'cover',
