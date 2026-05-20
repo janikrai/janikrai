@@ -123,7 +123,7 @@ export const PROJECTS: Project[] = [
     id: 'light-between-us',
     name: 'Light Between Us',
     client: 'Nanak Foods',
-    tags: ['Selected', 'Archive'],
+    tags: ['Archive'],
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/light-betwee-us.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/light-between-us.mp4',
     ratio: 'contain',
