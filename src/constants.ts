@@ -12,6 +12,25 @@ export const PROJECTS: Project[] = [
   credits: '',
   stills: []
 },
+{
+  id: 'into-the-heat',
+  name: 'Into the Heat',
+  client: 'Delta Firefighters',
+  videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/into_the_heat.mp4',
+  teaserUrl: 'https://janikrai.b-cdn.net/Teasers/into-the-heat.mp4',
+  tags: ['Selected', 'Archive'],
+  stills: [
+    'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat1.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat2.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat3.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat4.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat5.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat6.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat7.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat8.jpeg',
+  ],
+  credits: '',
+},
   {
     id: 'farm-to-table',
     name: 'Farm to Table',
