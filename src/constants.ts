@@ -19,6 +19,7 @@ export const PROJECTS: Project[] = [
   videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/into_the_heat.mp4',
   teaserUrl: 'https://janikrai.b-cdn.net/Teasers/into-the-heat.mp4',
   tags: ['Selected', 'Archive'],
+  ratio: 'contain',
   stills: [
     'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat1.jpeg',
     'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat2.jpeg',
@@ -29,7 +30,24 @@ export const PROJECTS: Project[] = [
     'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat7.jpeg',
     'https://janikrai.b-cdn.net/Stills/Into-the-heat/Into-the-heat8.jpeg',
   ],
-  credits: '',
+  credits: `Production Company: Workshop Film Co
+Director: Janik Rai
+Producers: Anthony Packer, Kevin Parker, Janik Rai
+DP: Chris Ajtony
+Drone: Nick McDonough
+1st AC: Adrian Kurbegovic
+Gaffer: Kenneth Martinez
+Key Grip: Juan Ortiz
+Swing: Jag Mann
+Swing: Melusine Yerna
+BTS: Jens Mowatt, Jordan Suidy, Noah Pope
+Post House: Birthday Editorial
+Editor: Steven Tsinokas
+EP: Renzo Sunga
+Sound: Adrian Bellaire
+Colour: Clinton Homouth
+Colour House: Artjail
+VFX: Zee Khan`,
 },
   {
     id: 'farm-to-table',
