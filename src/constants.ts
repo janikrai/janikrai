@@ -13,6 +13,26 @@ export const PROJECTS: Project[] = [
   stills: []
 },
 {
+  id: 'this-is-home',
+  name: 'This Is Home',
+  client: 'Vancouver Bandits',
+  tags: ['Selected', 'Archive'],
+  videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/this_is_home_-_vancouver_bandits_v1%20(2160p).mp4',
+  teaserUrl: 'https://janikrai.b-cdn.net/Teasers/Bandits_Teaser.mp4',
+  ratio: 'contain',
+  credits: '',
+  stills: [
+    'https://janikrai.b-cdn.net/Stills/Bandits/Bandits10.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Bandits/Bandits12.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Bandits/Bandits2.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Bandits/Bandits3.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Bandits/Bandits4.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Bandits/Bandits7.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Bandits/Bandits8.jpeg',
+    'https://janikrai.b-cdn.net/Stills/Bandits/Bandits9.jpeg'
+  ]
+},
+{
   id: 'into-the-heat',
   name: 'Into the Heat',
   client: 'Delta Firefighters',
