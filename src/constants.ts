@@ -1,17 +1,7 @@
 import { Project } from './types';
 
 export const PROJECTS: Project[] = [
- {
-  id: 'directors-reel',
-  name: "Director's Reel",
-  client: 'Janik Rai',
-  tags: ['Archive'],
-  videoUrl: "https://janikrai.b-cdn.net/Final%20Films/directors-reel.mp4",
-  teaserUrl: 'https://janikrai.b-cdn.net/Teasers/directors-reel.mp4',
-  ratio: 'cover',
-  credits: '',
-  stills: []
-},
+
 {
   id: 'this-is-home',
   name: 'This Is Home',

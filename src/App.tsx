@@ -107,6 +107,10 @@ function MainView() {
   const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const playerScrollRef = useRef<HTMLDivElement>(null);
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+  const playerOverlayRef = useRef<HTMLDivElement>(null);
+  const aboutOverlayRef = useRef<HTMLDivElement>(null);
   const [infoContentLeft, setInfoContentLeft] = useState<number>(0);
 
   const preCreditsVolume = useRef<number>(1);
@@ -186,14 +190,35 @@ function MainView() {
     const refs = [bgVideoRef0, bgVideoRef1];
     const nextIndex = activeBgIndex === 0 ? 1 : 0;
     const nextVideo = refs[nextIndex].current;
-    if (nextVideo) {
-      nextVideo.src = activeTeaser.teaserUrl;
-      nextVideo.poster = getPoster(activeTeaser);
-      nextVideo.load();
-      nextVideo.play().catch(() => {});
+    if (!nextVideo) return;
+
+    let cancelled = false;
+    const startTime = Date.now();
+
+    const swap = () => {
+      if (cancelled) return;
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, 150 - elapsed);
+      setTimeout(() => {
+        if (!cancelled) setActiveBgIndex(nextIndex);
+      }, remaining);
+    };
+
+    nextVideo.src = activeTeaser.teaserUrl;
+    nextVideo.poster = getPoster(activeTeaser);
+    nextVideo.load();
+    nextVideo.play().catch(() => {});
+
+    if (nextVideo.readyState >= 3) {
+      swap();
+    } else {
+      nextVideo.addEventListener('canplay', swap, { once: true });
     }
-    const timer = setTimeout(() => setActiveBgIndex(nextIndex), 150);
-    return () => clearTimeout(timer);
+
+    return () => {
+      cancelled = true;
+      nextVideo.removeEventListener('canplay', swap);
+    };
   }, [activeTeaser]);
 
   useEffect(() => {
@@ -226,7 +251,7 @@ function MainView() {
       videoRef.current.currentTime = 0;
       videoRef.current.load();
       videoRef.current.play().catch(() => {});
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      playerScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [selectedProject?.id]);
 
@@ -267,6 +292,8 @@ function MainView() {
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLVideoElement) return;
+
       if (e.key === 'Escape') {
         if (isCreditsOpen) {
           setIsCreditsOpen(false);
@@ -274,9 +301,9 @@ function MainView() {
             videoRef.current.volume = preCreditsVolume.current;
           }
         } else if (selectedProject) {
-          navigate(-1);
+          navigate(location.state?.from || '/');
         } else if (isAboutOpen) {
-          navigate(-1);
+          navigate('/');
         }
       }
       if (e.key === 'ArrowLeft' && selectedProject) {
@@ -288,7 +315,7 @@ function MainView() {
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isCreditsOpen, selectedProject, isAboutOpen, navigate, handlePrev, handleNext]);
+  }, [isCreditsOpen, selectedProject, isAboutOpen, navigate, handlePrev, handleNext, location]);
 
   useEffect(() => {
     const measure = () => {
@@ -300,6 +327,28 @@ function MainView() {
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   }, [isAboutOpen]);
+
+  useEffect(() => {
+    if (selectedProject) {
+      lastFocusedRef.current = document.activeElement as HTMLElement;
+      playerOverlayRef.current?.focus();
+    } else {
+      lastFocusedRef.current?.focus();
+    }
+  }, [selectedProject]);
+
+  useEffect(() => {
+    if (isAboutOpen) {
+      lastFocusedRef.current = document.activeElement as HTMLElement;
+      aboutOverlayRef.current?.focus();
+    } else {
+      lastFocusedRef.current?.focus();
+    }
+  }, [isAboutOpen]);
+
+  if (projectId && !selectedProject) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="relative min-h-screen w-full bg-bg text-ink selection:bg-ink selection:text-bg">
@@ -320,16 +369,16 @@ function MainView() {
         ) : isAboutOpen ? (
           <>
             <title>About — Janik Rai</title>
-            <meta name="description" content="Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally." />
+            <meta name="description" content="Janik Rai is a British-Canadian director with South Asian roots, based in Toronto and working internationally." />
             <meta property="og:title" content="About — Janik Rai" />
             <link rel="canonical" href="https://janikrai.com/info" />
           </>
         ) : (
           <>
             <title>Janik Rai — Commercial Director</title>
-            <meta name="description" content="Vancouver-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
+            <meta name="description" content="Toronto-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
             <meta property="og:title" content="Janik Rai — Commercial Director" />
-            <meta property="og:description" content="Vancouver-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
+            <meta property="og:description" content="Toronto-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
             <meta property="og:image" content="https://janikrai.b-cdn.net/Stills/eternity/eternity1.jpg" />
             <meta property="og:url" content="https://janikrai.com" />
             <meta property="og:type" content="website" />
@@ -351,7 +400,7 @@ function MainView() {
                   key={cat}
                   onClick={() => navigate(cat === 'Archive' ? '/archive' : '/')}
                   className={`text-[22px] font-bold uppercase tracking-widest transition-opacity hover:opacity-100 ${
-                    !isAboutOpen && activeCategory === cat ? 'opacity-100' : 'opacity-30'
+                    !isAboutOpen && activeCategory === cat ? 'opacity-100' : 'opacity-55'
                   }`}
                 >
                   {cat}
@@ -360,15 +409,15 @@ function MainView() {
               {isAboutOpen ? (
                 <StrikeButton
                   ref={closeButtonRef}
-                  onClick={() => navigate(-1)}
-                  className='text-[22px] font-bold uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity'
+                  onClick={() => navigate('/')}
+                  className='text-[22px] font-bold uppercase tracking-widest opacity-55 hover:opacity-100 transition-opacity'
                 >
                   Close
                 </StrikeButton>
               ) : (
                 <StrikeButton
                   onClick={() => navigate('/info')}
-                  className='text-[22px] font-bold uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity'
+                  className='text-[22px] font-bold uppercase tracking-widest opacity-55 hover:opacity-100 transition-opacity'
                 >
                   Info
                 </StrikeButton>
@@ -410,7 +459,7 @@ function MainView() {
               key={cat}
               onClick={() => navigate(cat === 'Archive' ? '/archive' : '/')}
               className={`text-[16px] uppercase tracking-widest transition-opacity ${
-                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-30'
+                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-55'
               }`}
             >
               {cat}
@@ -418,7 +467,7 @@ function MainView() {
           ))}
           <StrikeButton
             onClick={() => navigate('/info')}
-            className='text-[16px] uppercase tracking-widest opacity-30'
+            className='text-[16px] uppercase tracking-widest opacity-55'
           >
             Info
           </StrikeButton>
@@ -606,6 +655,12 @@ function MainView() {
       <AnimatePresence>
         {selectedProject && (
           <motion.div
+            ref={(el) => {
+              playerScrollRef.current = el;
+              playerOverlayRef.current = el;
+            }}
+            tabIndex={-1}
+            style={{ outline: 'none' }}
             initial={{ opacity: 0, clipPath: 'inset(2% 2% 2% 2% round 4px)' }}
             animate={{ opacity: 1, clipPath: 'inset(0% 0% 0% 0% round 0px)' }}
             exit={{ opacity: 1, clipPath: 'inset(100% 0% 0% 0% round 0px)' }}
@@ -674,7 +729,7 @@ function MainView() {
                 {hasPrev && (
                   <StrikeButton
                     onClick={handlePrev}
-                    className='hidden md:flex absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[20px] font-bold uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity'
+                    className='hidden md:flex absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[20px] font-bold uppercase tracking-widest opacity-55 hover:opacity-100 transition-opacity'
                   >
                     Prev
                   </StrikeButton>
@@ -691,12 +746,28 @@ function MainView() {
                     playsInline
                     style={{
                       width: '100%',
+                      height: selectedProject.ratio === 'cover' ? '80vh' : undefined,
                       maxHeight: '80vh',
-                      objectFit: 'contain',
+                      objectFit: selectedProject.ratio === 'cover' ? 'cover' : 'contain',
                       background: 'black'
                     }}
                   />
                 </div>
+
+                {selectedProject.laurelUrls && selectedProject.laurelUrls.length > 0 && (
+                  <div className='flex items-center justify-center gap-6 pt-6 w-full'>
+                    {selectedProject.laurelUrls.map((url, i) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt=''
+                        aria-hidden='true'
+                        className='h-16 md:h-24 w-auto object-contain opacity-60'
+                        style={{ filter: 'brightness(0) invert(0.93)' }}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 <div className='flex md:hidden items-center justify-between w-full px-6 pt-4'>
                   {hasPrev && (
@@ -722,7 +793,7 @@ function MainView() {
                 {hasNext && (
                   <StrikeButton
                     onClick={handleNext}
-                    className='hidden md:flex absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[20px] font-bold uppercase tracking-widest opacity-30 hover:opacity-100 transition-opacity'
+                    className='hidden md:flex absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[20px] font-bold uppercase tracking-widest opacity-55 hover:opacity-100 transition-opacity'
                   >
                     Next
                   </StrikeButton>
@@ -838,26 +909,37 @@ function MainView() {
       <AnimatePresence>
         {isAboutOpen && (
           <motion.div
+            ref={aboutOverlayRef}
+            tabIndex={-1}
+            style={{ outline: 'none' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center lg:items-start lg:justify-start lg:pt-[15vh] lg:px-10 bg-bg/85 backdrop-blur-sm"
-            onClick={() => navigate(-1)}
+            className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto lg:items-start lg:justify-start lg:pt-[15vh] lg:px-10 lg:overflow-hidden bg-bg/85 backdrop-blur-sm"
+            onClick={() => navigate('/')}
           >
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(-1);
+                navigate('/');
               }}
-              className='flex md:hidden absolute top-6 right-6 text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
+              className='flex md:hidden fixed top-6 right-6 text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
             >
               Close
             </button>
             <div className='w-full px-6 pt-24 pb-10 flex flex-col gap-10 lg:hidden' onClick={(e) => e.stopPropagation()}>
+              <div className='w-full flex justify-center mb-2'>
+                <img
+                  src="https://janikrai.b-cdn.net/Favicon/WebHeadshot1.JPG"
+                  alt="Janik Rai"
+                  className="w-full max-w-[280px] aspect-[3/4] object-cover rounded-sm select-none pointer-events-none"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
               <div className='flex flex-col gap-4'>
                 <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-80 font-bold'>Bio</h4>
                 <div className='flex flex-col gap-6 text-[15px] uppercase tracking-[0.15em] leading-loose opacity-100 typewriter-bio' style={{ fontFamily: "'Courier New', Courier, monospace" }}>
-                  <p className="typewriter-bio">Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
+                  <p className="typewriter-bio">Janik Rai is a British-Canadian director with South Asian roots, based in Toronto and working internationally.</p>
                   <p className="typewriter-bio">Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
                 </div>
               </div>
@@ -876,35 +958,48 @@ function MainView() {
             </div>
 
             <div
-              className='hidden lg:flex flex-col gap-8'
+              className='hidden lg:flex flex-row items-start'
               style={{
                 marginLeft: `${infoContentLeft - 40}px`,
                 maxWidth: `calc(100vw - ${(infoContentLeft) * 2}px + 40px)`
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className='flex flex-col gap-8 max-w-[50rem] pr-10'>
-                <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold' style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>Bio</h4>
-                <div 
-                  className='flex flex-col gap-6 text-[16px] uppercase tracking-[0.2em] leading-loose typewriter-bio'
-                  style={{ fontFamily: "'Courier Prime', 'Courier New', Courier, monospace" }}
-                >
-                  <p className='typewriter-bio'>Janik Rai is a British-Canadian director with South Asian roots, based in Vancouver and working internationally.</p>
-                  <p className='typewriter-bio'>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
+              {infoContentLeft > 0 && (
+                <div className="flex-shrink-0 animate-fade-in" style={{ width: `${infoContentLeft - 80}px`, marginRight: '40px', maxWidth: '300px' }}>
+                  <img
+                    src="https://janikrai.b-cdn.net/Favicon/WebHeadshot1.JPG"
+                    alt="Janik Rai"
+                    className="w-full aspect-[3/4] object-cover rounded-sm select-none pointer-events-none"
+                    referrerPolicy="no-referrer"
+                  />
                 </div>
-              </div>
+              )}
 
-              <div className='flex flex-col gap-6'>
-                <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold' style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>Contact</h4>
-                <div className='flex flex-col gap-5'>
-                  <a href='mailto:contact@janikrai.com' className='text-[16px] uppercase tracking-[0.2em] typewriter-bio hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
-                  <div className='flex items-center gap-6'>
-                    <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' className='opacity-100 hover:opacity-60 transition-opacity'>
-                      <svg width='18' height='18' viewBox='0 0 24 24' fill='currentColor'><path d='M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.087 3.479-3.131C5.002 2.764 6.166 2.125 6.912 2.056c1.735-.168 2.899 1.021 3.437 3.505.584 2.718.991 4.407 1.234 5.088.686 1.92 1.437 2.882 2.197 2.882.686 0 1.704-.861 3.063-2.617 1.339-1.736 2.054-3.054 2.093-3.926.084-1.485-.435-2.223-1.573-2.223-.568 0-1.151.131-1.768.393 1.167-3.831 3.411-5.691 6.703-5.619 2.351.066 3.454 1.585 3.279 4.177z'/></svg>
-                    </a>
-                    <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' className='opacity-100 hover:opacity-60 transition-opacity'>
-                      <svg width='18' height='18' viewBox='0 0 24 24' fill='currentColor'><path d='M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z'/></svg>
-                    </a>
+              <div className='flex flex-col gap-8 flex-1'>
+                <div className='flex flex-col gap-8 max-w-[50rem] pr-10'>
+                  <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold' style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>Bio</h4>
+                  <div 
+                    className='flex flex-col gap-6 text-[16px] uppercase tracking-[0.2em] leading-loose typewriter-bio'
+                    style={{ fontFamily: "'Courier Prime', 'Courier New', Courier, monospace" }}
+                  >
+                    <p className='typewriter-bio'>Janik Rai is a British-Canadian director with South Asian roots, based in Toronto and working internationally.</p>
+                    <p className='typewriter-bio'>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
+                  </div>
+                </div>
+
+                <div className='flex flex-col gap-6'>
+                  <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold' style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}>Contact</h4>
+                  <div className='flex flex-col gap-5'>
+                    <a href='mailto:contact@janikrai.com' className='text-[16px] uppercase tracking-[0.2em] typewriter-bio hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
+                    <div className='flex items-center gap-6'>
+                      <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' className='opacity-100 hover:opacity-60 transition-opacity'>
+                        <svg width='18' height='18' viewBox='0 0 24 24' fill='currentColor'><path d='M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.087 3.479-3.131C5.002 2.764 6.166 2.125 6.912 2.056c1.735-.168 2.899 1.021 3.437 3.505.584 2.718.991 4.407 1.234 5.088.686 1.92 1.437 2.882 2.197 2.882.686 0 1.704-.861 3.063-2.617 1.339-1.736 2.054-3.054 2.093-3.926.084-1.485-.435-2.223-1.573-2.223-.568 0-1.151.131-1.768.393 1.167-3.831 3.411-5.691 6.703-5.619 2.351.066 3.454 1.585 3.279 4.177z'/></svg>
+                      </a>
+                      <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' className='opacity-100 hover:opacity-60 transition-opacity'>
+                        <svg width='18' height='18' viewBox='0 0 24 24' fill='currentColor'><path d='M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z'/></svg>
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
