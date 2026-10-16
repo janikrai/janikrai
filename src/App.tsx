@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, forwardRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useParams, useLocation, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
@@ -30,6 +30,7 @@ function ArchiveTile({
   isTabHidden,
   isDesktop
 }: {
+  key?: React.Key;
   project: Project;
   isOverlayOpen: boolean;
   isTabHidden: boolean;
@@ -447,11 +448,12 @@ function MainView() {
   // Focus trap utility
   const handleTrapFocus = (e: React.KeyboardEvent<HTMLElement>, containerRef: React.RefObject<HTMLElement | null>) => {
     if (e.key !== 'Tab' || !containerRef.current) return;
-    const focusables = Array.from(
-      containerRef.current.querySelectorAll<HTMLElement>(
+    const elements = Array.from(
+      containerRef.current.querySelectorAll(
         'button:not([disabled]), [href]:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       )
-    ).filter(el => !el.closest('[inert]'));
+    );
+    const focusables: HTMLElement[] = elements.filter((el): el is HTMLElement => el instanceof HTMLElement && !el.closest('[inert]'));
 
     if (focusables.length === 0) return;
     const first = focusables[0];
