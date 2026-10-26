@@ -547,13 +547,15 @@ function MainView() {
             <meta name="description" content={`${selectedProject.name} for ${selectedProject.client}. Directed by Janik Rai.`} />
             <meta property="og:title" content={`${selectedProject.name} — Janik Rai`} />
             <meta property="og:description" content={`${selectedProject.name} for ${selectedProject.client}. Directed by Janik Rai.`} />
-            <meta property="og:image" content={selectedProject.stills?.[0] || 'https://janikrai.b-cdn.net/Stills/eternity/eternity1.jpg'} />
+            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
+            <meta property="og:image:width" content="414" />
+            <meta property="og:image:height" content="414" />
             <meta property="og:url" content={`https://janikrai.com/work/${selectedProject.id}`} />
             <meta property="og:type" content="video.other" />
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:title" content={`${selectedProject.name} — Janik Rai`} />
             <meta name="twitter:description" content={`${selectedProject.name} for ${selectedProject.client}. Directed by Janik Rai.`} />
-            <meta name="twitter:image" content={selectedProject.stills?.[0] || 'https://janikrai.b-cdn.net/Stills/eternity/eternity1.jpg'} />
+            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
             <link rel="canonical" href={`https://janikrai.com/work/${selectedProject.id}`} />
           </>
         ) : location.pathname === '/archive' ? (
@@ -562,13 +564,15 @@ function MainView() {
             <meta name="description" content="Archive of commercial and narrative work directed by Janik Rai." />
             <meta property="og:title" content="Archive — Janik Rai" />
             <meta property="og:description" content="Archive of commercial and narrative work directed by Janik Rai." />
-            <meta property="og:image" content="https://janikrai.b-cdn.net/Stills/Bandits/Bandits10.jpeg" />
+            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
+            <meta property="og:image:width" content="414" />
+            <meta property="og:image:height" content="414" />
             <meta property="og:url" content="https://janikrai.com/archive" />
             <meta property="og:type" content="website" />
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:title" content="Archive — Janik Rai" />
             <meta name="twitter:description" content="Archive of commercial and narrative work directed by Janik Rai." />
-            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Stills/Bandits/Bandits10.jpeg" />
+            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
             <link rel="canonical" href="https://janikrai.com/archive" />
           </>
         ) : isAboutOpen ? (
@@ -577,13 +581,15 @@ function MainView() {
             <meta name="description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
             <meta property="og:title" content="About — Janik Rai" />
             <meta property="og:description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
-            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg" />
+            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
+            <meta property="og:image:width" content="414" />
+            <meta property="og:image:height" content="414" />
             <meta property="og:url" content="https://janikrai.com/info" />
             <meta property="og:type" content="profile" />
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:title" content="About — Janik Rai" />
             <meta name="twitter:description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
-            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg" />
+            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
             <link rel="canonical" href="https://janikrai.com/info" />
           </>
         ) : (
@@ -592,13 +598,15 @@ function MainView() {
             <meta name="description" content="Toronto-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
             <meta property="og:title" content="Janik Rai — Commercial Director" />
             <meta property="og:description" content="Toronto-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
-            <meta property="og:image" content="https://janikrai.b-cdn.net/Stills/eternity/eternity1.jpg" />
+            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
+            <meta property="og:image:width" content="414" />
+            <meta property="og:image:height" content="414" />
             <meta property="og:url" content="https://janikrai.com" />
             <meta property="og:type" content="website" />
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:title" content="Janik Rai — Commercial Director" />
             <meta name="twitter:description" content="Toronto-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
-            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Stills/eternity/eternity1.jpg" />
+            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
             <link rel="canonical" href="https://janikrai.com" />
           </>
         )}
