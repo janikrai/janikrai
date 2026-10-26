@@ -141,6 +141,7 @@ function MainView() {
   const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
   const [mobilePlayingMap, setMobilePlayingMap] = useState<Record<string, boolean>>({});
   const [hasVideoError, setHasVideoError] = useState(false);
+  const [isBioExpanded, setIsBioExpanded] = useState(false);
 
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
@@ -517,6 +518,12 @@ function MainView() {
     }
   }, [isAboutOpen, selectedProject]);
 
+  useEffect(() => {
+    if (!isAboutOpen) {
+      setIsBioExpanded(false);
+    }
+  }, [isAboutOpen]);
+
   // Credits overlay focus management
   useEffect(() => {
     if (isCreditsOpen) {
@@ -567,16 +574,16 @@ function MainView() {
         ) : isAboutOpen ? (
           <>
             <title>About — Janik Rai</title>
-            <meta name="description" content="Janik Rai is a British-Canadian director with South Asian roots, based in Toronto and working internationally." />
+            <meta name="description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
             <meta property="og:title" content="About — Janik Rai" />
-            <meta property="og:description" content="Janik Rai is a British-Canadian director with South Asian roots, based in Toronto and working internationally." />
-            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/WebHeadshot1.JPG" />
+            <meta property="og:description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
+            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg" />
             <meta property="og:url" content="https://janikrai.com/info" />
             <meta property="og:type" content="profile" />
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:title" content="About — Janik Rai" />
-            <meta name="twitter:description" content="Janik Rai is a British-Canadian director with South Asian roots, based in Toronto and working internationally." />
-            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/WebHeadshot1.JPG" />
+            <meta name="twitter:description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
+            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg" />
             <link rel="canonical" href="https://janikrai.com/info" />
           </>
         ) : (
@@ -1209,8 +1216,35 @@ function MainView() {
               <div className='flex flex-col gap-4'>
                 <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-80 font-bold'>Bio</h4>
                 <div className='flex flex-col gap-6 text-[15px] uppercase tracking-[0.15em] leading-loose opacity-100 typewriter-bio'>
-                  <p className="typewriter-bio">Janik Rai is a British-Canadian director with South Asian roots, based in Toronto and working internationally.</p>
-                  <p className="typewriter-bio">Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
+                  <p className="typewriter-bio">Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality.</p>
+                  {isBioExpanded && (
+                    <div id="bio-more-mobile" className="flex flex-col gap-6">
+                      <p className="typewriter-bio">Self-taught, Rai began his filmmaking career in music videos, working with some of the world’s biggest South Asian artists. It was through these early projects that he developed his approach to visual storytelling, which became the foundation of his commercial work.</p>
+                      <p className="typewriter-bio">Across commercials and branded content, his approach begins with what an image can communicate through behaviour, atmosphere and detail. He gives the gestures and interactions that make a moment believable as much attention as the frame itself.</p>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsBioExpanded(!isBioExpanded)}
+                    aria-expanded={isBioExpanded}
+                    aria-controls="bio-more-mobile"
+                    className="typewriter-bio text-[13px] uppercase tracking-[0.2em] underline underline-offset-4 decoration-ink/40 hover:decoration-ink opacity-70 hover:opacity-100 transition-all cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-ink/40 w-fit"
+                  >
+                    {isBioExpanded ? 'Less' : 'More'}
+                  </button>
+                </div>
+              </div>
+              <div className='flex flex-col gap-4'>
+                <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-80 font-bold'>Representation</h4>
+                <div className='flex flex-col gap-2 text-[15px] uppercase tracking-[0.2em] typewriter-bio'>
+                  <span className='opacity-80'>Canada</span>
+                  <a
+                    href='mailto:holly@alfredofilms.com'
+                    className='opacity-100 hover:opacity-60 transition-opacity typewriter-bio leading-relaxed'
+                  >
+                    Alfredo Films<br />
+                    Holly Rowden
+                  </a>
                 </div>
               </div>
               <div className='flex flex-col gap-4'>
@@ -1228,30 +1262,58 @@ function MainView() {
             </div>
 
             <div
-              className='hidden lg:flex flex-row items-start pb-20'
-              style={{
-                marginLeft: `${infoContentLeft - 40}px`,
-                maxWidth: `calc(100vw - ${(infoContentLeft) * 2}px + 40px)`
-              }}
+              className='hidden lg:flex flex-row items-start pb-20 w-full max-w-[1400px]'
               onClick={(e) => e.stopPropagation()}
             >
-              {infoContentLeft > 0 && (
-                <div className="flex-shrink-0 animate-fade-in" style={{ width: `${infoContentLeft - 80}px`, marginRight: '40px', maxWidth: '300px' }}>
-                  <img
-                    src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
-                    alt="Janik Rai"
-                    className="w-full aspect-[3/4] object-cover rounded-sm select-none pointer-events-none"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              )}
+              <div
+                className="flex-shrink-0 animate-fade-in"
+                style={{
+                  width: infoContentLeft > 80 ? `${Math.min(300, infoContentLeft - 80)}px` : '260px',
+                  marginRight: '40px'
+                }}
+              >
+                <img
+                  src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
+                  alt="Janik Rai"
+                  className="w-full aspect-[3/4] object-cover rounded-sm select-none pointer-events-none"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
 
-              <div className='flex flex-col gap-8 flex-1'>
-                <div className='flex flex-col gap-8 max-w-[50rem] pr-10'>
+              <div className='flex flex-col gap-8 flex-1 min-w-0'>
+                <div className='flex flex-col gap-8 max-w-[60rem] pr-6 lg:pr-10'>
                   <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold'>Bio</h4>
                   <div className='flex flex-col gap-6 text-[16px] uppercase tracking-[0.2em] leading-loose typewriter-bio'>
-                    <p className='typewriter-bio'>Janik Rai is a British-Canadian director with South Asian roots, based in Toronto and working internationally.</p>
-                    <p className='typewriter-bio'>Drawn to the space between what people say and what they mean, he makes work that feels human and real. A composed, cinematic eye rooted in documentary authenticity.</p>
+                    <p className='typewriter-bio'>Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality.</p>
+                    {isBioExpanded && (
+                      <div id="bio-more-desktop" className="flex flex-col gap-6">
+                        <p className='typewriter-bio'>Self-taught, Rai began his filmmaking career in music videos, working with some of the world’s biggest South Asian artists. It was through these early projects that he developed his approach to visual storytelling, which became the foundation of his commercial work.</p>
+                        <p className='typewriter-bio'>Across commercials and branded content, his approach begins with what an image can communicate through behaviour, atmosphere and detail. He gives the gestures and interactions that make a moment believable as much attention as the frame itself.</p>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsBioExpanded(!isBioExpanded)}
+                      aria-expanded={isBioExpanded}
+                      aria-controls="bio-more-desktop"
+                      className="typewriter-bio text-[13px] lg:text-[14px] uppercase tracking-[0.2em] underline underline-offset-4 decoration-ink/40 hover:decoration-ink opacity-70 hover:opacity-100 transition-all cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-ink/40 w-fit"
+                    >
+                      {isBioExpanded ? 'Less' : 'More'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className='flex flex-col gap-6'>
+                  <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold'>Representation</h4>
+                  <div className='flex flex-col gap-2 text-[16px] uppercase tracking-[0.2em] typewriter-bio'>
+                    <span className='opacity-80'>Canada</span>
+                    <a
+                      href='mailto:holly@alfredofilms.com'
+                      className='typewriter-bio hover:opacity-60 transition-opacity leading-relaxed'
+                    >
+                      Alfredo Films<br />
+                      Holly Rowden
+                    </a>
                   </div>
                 </div>
 
