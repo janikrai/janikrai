@@ -1,35 +1,90 @@
 @import "tailwindcss";
 
+/* 
+  Inferi Regular (Blaze Type)
+  Main text, navigation, and project listings
+*/
+@font-face {
+  font-family: 'Inferi';
+  src: url('/fonts/Inferi-Regular.woff2') format('woff2'),
+       url('/fonts/Inferi-Regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 
+  Waldenburg Halbfett (Optimo)
+  Centred director name and small uppercase section headings
+*/
+@font-face {
+  font-family: 'Waldenburg';
+  src: url('/fonts/Waldenburg-Halbfett.woff2') format('woff2'),
+       url('/fonts/Waldenburg-Halbfett.woff') format('woff');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Courier Prime", "Courier New", Courier, monospace;
+  --font-main: "Inferi", Georgia, "Times New Roman", Times, serif;
+  --font-heading: "Waldenburg", "Helvetica Neue", Helvetica, Arial, -apple-system, BlinkMacSystemFont, sans-serif;
   --color-bg: #0a0a0a;
   --color-ink: #EDEDE8;
 }
 
+:root {
+  --font-main: "Inferi", Georgia, "Times New Roman", Times, serif;
+  --font-heading: "Waldenburg", "Helvetica Neue", Helvetica, Arial, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
 @layer base {
-  * {
-    font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+  html, body {
+    font-family: var(--font-main);
+    font-size: 15.6px;
+    line-height: 22px;
+    color: #EDEDE8;
+    background-color: #0a0a0a;
   }
 
   body {
-    @apply bg-bg text-ink font-sans antialiased overflow-x-hidden md:overflow-y-auto;
-    background-color: var(--color-bg);
+    @apply antialiased overflow-x-hidden md:overflow-y-auto;
   }
 
   ::selection {
-    @apply bg-ink text-bg;
+    background-color: #EDEDE8;
+    color: #0a0a0a;
   }
 }
 
 @layer utilities {
-  .text-trim-cap {
-    text-edge: cap;
-    leading-trim: both;
+  .font-main {
+    font-family: var(--font-main);
   }
 
-  .typewriter-bio {
-    font-family: 'Courier Prime', 'Courier New', Courier, monospace !important;
+  .font-heading {
+    font-family: var(--font-heading);
+  }
+
+  /* Desktop baseline typography (+2px: 13.6px -> 15.6px) */
+  .text-main {
+    font-size: 15.6px;
+    line-height: 22px;
+  }
+
+  /* Small uppercase section headings (+2px: 8.5px -> 10.5px) */
+  .text-label {
+    font-family: var(--font-heading);
+    font-size: 10.5px;
+    line-height: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+
+  /* Corner navigation padding */
+  .corner-pad {
+    padding: 8.5px;
   }
 }
 
@@ -39,10 +94,11 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+    transform: none !important;
   }
 }
 
-/* Custom scrollbar for popups */
+/* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
 }

@@ -110,8 +110,8 @@ function ArchiveTile({
       )}
       <div className='absolute inset-0 bg-black/55 pointer-events-none' />
       <div className='absolute inset-0 flex flex-col items-start justify-end p-2 pointer-events-none'>
-        <p className='text-[11px] uppercase tracking-[0.2em] opacity-75 leading-none mb-1'>{project.client}</p>
-        <h3 className='text-[13px] uppercase tracking-[0.1em] font-bold leading-tight font-display'>{project.name}</h3>
+        <p className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold opacity-75 mb-0.5'>{project.client}</p>
+        <h3 className='text-[15.6px] leading-[22px] font-main text-ink'>{project.name}</h3>
       </div>
     </Link>
   );
@@ -160,6 +160,8 @@ function MainView() {
   const playerOverlayRef = useRef<HTMLDivElement>(null);
   const aboutOverlayRef = useRef<HTMLDivElement>(null);
   const creditsOverlayRef = useRef<HTMLDivElement>(null);
+  const selectedLinkRef = useRef<HTMLAnchorElement>(null);
+  const [selectedLeft, setSelectedLeft] = useState<number>(0);
   const [infoContentLeft, setInfoContentLeft] = useState<number>(0);
 
   const preCreditsVolume = useRef<number>(1);
@@ -201,6 +203,24 @@ function MainView() {
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Track the exact left coordinate of 'Selected' to align project column
+  useEffect(() => {
+    const updateSelectedLeft = () => {
+      if (selectedLinkRef.current) {
+        const rect = selectedLinkRef.current.getBoundingClientRect();
+        if (rect.left > 0) {
+          setSelectedLeft(rect.left);
+        }
+      }
+    };
+    updateSelectedLeft();
+    window.addEventListener('resize', updateSelectedLeft);
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      document.fonts.ready.then(updateSelectedLeft);
+    }
+    return () => window.removeEventListener('resize', updateSelectedLeft);
   }, []);
 
   // Document tab visibility tracking
@@ -613,161 +633,110 @@ function MainView() {
       </Helmet>
 
       {/* Navigation */}
-      {/* Desktop Nav */}
       <nav
         inert={isOverlayOpen ? true : undefined}
-        className={`fixed top-0 left-0 z-[80] w-full px-6 md:px-10 py-4 md:py-6 bg-transparent transition-opacity duration-300 hidden md:flex ${
-          selectedProject ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        className={`fixed top-0 left-0 right-0 z-[80] p-5 md:p-6 pointer-events-none transition-opacity duration-300 ${
+          isOverlayOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
       >
-        <div className="flex items-start justify-between w-full">
-          {/* Categories */}
-          <div className='flex gap-6 lg:gap-10'>
-            {CATEGORIES.map((cat) => (
-              <Link
-                key={cat}
-                to={cat === 'Archive' ? '/archive' : '/'}
-                className={`text-[19px] lg:text-[22px] font-bold uppercase tracking-widest transition-opacity hover:opacity-100 ${
-                  !isAboutOpen && activeCategory === cat ? 'opacity-100' : 'opacity-55'
-                }`}
-              >
-                {cat}
-              </Link>
-            ))}
-            {isAboutOpen ? (
-              <StrikeButton
-                ref={closeButtonRef}
-                onClick={() => navigate('/')}
-                className='text-[19px] lg:text-[22px] font-bold uppercase tracking-widest opacity-55 hover:opacity-100 transition-opacity'
-              >
-                Close
-              </StrikeButton>
-            ) : (
-              <Link
-                to="/info"
-                className='text-[19px] lg:text-[22px] font-bold uppercase tracking-widest opacity-55 hover:opacity-100 transition-opacity'
-              >
-                Info
-              </Link>
-            )}
-          </div>
-
-          {/* Name */}
-          <div className='absolute left-1/2 -translate-x-1/2 hidden md:block'>
-            <div className="group flex flex-col items-center">
-              <Link to='/' className='text-[22px] lg:text-[26px] font-bold uppercase tracking-[0.05em]'>
-                Janik Rai
-              </Link>
-              <p className='text-[11px] lg:text-[13px] uppercase tracking-[0.3em] opacity-0 -translate-y-1 group-hover:opacity-85 group-hover:translate-y-0 transition-all duration-300 pointer-events-none'>
-                Director
-              </p>
-            </div>
-          </div>
-
-          {/* Spacer */}
-          <div className='min-w-[4rem] flex justify-end' />
-        </div>
-      </nav>
-
-      {/* Mobile Nav */}
-      <div
-        inert={isOverlayOpen ? true : undefined}
-        className={`fixed top-0 left-0 right-0 z-[80] flex md:hidden flex-col items-center pt-4 pb-3 bg-transparent transition-opacity duration-300 ${
-          isAboutOpen || selectedProject ? 'opacity-0 pointer-events-none' : 'opacity-100'
-        }`}
-      >
-        <Link
-          to='/'
-          className='text-[19px] font-bold uppercase tracking-[0.3em] mb-4 text-inherit no-underline'
-        >
-          Janik Rai
-        </Link>
-        <div className='flex items-center gap-8'>
-          {CATEGORIES.map((cat) => (
-            <Link
-              key={cat}
-              to={cat === 'Archive' ? '/archive' : '/'}
-              className={`text-[16px] uppercase tracking-widest transition-opacity text-inherit no-underline ${
-                activeCategory === cat ? 'opacity-100 font-bold' : 'opacity-55'
-              }`}
-            >
-              {cat}
-            </Link>
-          ))}
+        {/* Mobile: 3 equal-width grid columns (left, centre, right). Desktop & Tablet: flex with preserved gaps */}
+        <div className="grid grid-cols-3 items-baseline sm:flex sm:items-baseline sm:gap-16 md:gap-20 pointer-events-auto w-full sm:w-auto">
           <Link
-            to='/info'
-            className='text-[16px] uppercase tracking-widest opacity-55 text-inherit no-underline'
+            to="/info"
+            className="block sm:inline text-left font-main text-[15.6px] leading-[22px] opacity-55 hover:opacity-100 transition-opacity no-underline text-inherit focus:outline-none focus-visible:ring-1 focus-visible:ring-ink/40 whitespace-nowrap"
           >
             Info
           </Link>
+          <Link
+            ref={selectedLinkRef}
+            to="/"
+            className={`block sm:inline text-center sm:text-left font-main text-[15.6px] leading-[22px] transition-opacity no-underline text-inherit focus:outline-none focus-visible:ring-1 focus-visible:ring-ink/40 whitespace-nowrap ${
+              activeCategory === 'Selected' ? 'opacity-100 font-normal' : 'opacity-55 hover:opacity-100'
+            }`}
+          >
+            Selected
+          </Link>
+          <Link
+            to="/archive"
+            className={`block sm:inline text-right sm:text-left font-main text-[15.6px] leading-[22px] transition-opacity no-underline text-inherit focus:outline-none focus-visible:ring-1 focus-visible:ring-ink/40 whitespace-nowrap ${
+              activeCategory === 'Archive' ? 'opacity-100 font-normal' : 'opacity-55 hover:opacity-100'
+            }`}
+          >
+            Archive
+          </Link>
         </div>
+      </nav>
+
+      {/* Centred Director Name (Reference Layout & Inward Hover Animation, +2px Typography) */}
+      <div
+        inert={isOverlayOpen ? true : undefined}
+        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none transition-opacity duration-300 ${
+          isAboutOpen || selectedProject || activeCategory === 'Archive' ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}
+      >
+        <Link
+          to="/info"
+          aria-label="Janik Rai — View Director Info"
+          className="group pointer-events-auto relative inline-flex items-center justify-center text-inherit no-underline cursor-pointer select-none py-10 px-8 sm:px-14 md:px-20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/60"
+        >
+          <div className="flex items-center justify-center gap-20 sm:gap-28 md:gap-36 lg:gap-48 pointer-events-none">
+            <span className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:translate-x-6 sm:group-hover:translate-x-10 group-focus-visible:translate-x-6 sm:group-focus-visible:translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform">
+              Janik
+            </span>
+            <span className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:-translate-x-6 sm:group-hover:-translate-x-10 group-focus-visible:-translate-x-6 sm:group-focus-visible:-translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform">
+              Rai
+            </span>
+          </div>
+        </Link>
       </div>
 
       {/* Main Content */}
       <main
         inert={isOverlayOpen ? true : undefined}
-        style={{ paddingTop: '13vh' }}
-        className="relative z-10 flex min-h-screen items-start justify-start p-6 md:p-10 pb-36 md:pb-40"
+        className="relative z-10 flex min-h-screen items-start justify-start p-0 pt-16 md:pt-[72px] pb-36 md:pb-40"
       >
-        {/* Desktop Project List */}
-        <div className="hidden md:block w-full max-w-2xl text-left">
-          <div className={`space-y-0 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0' : 'opacity-100'}`}>
-            {filteredProjects.map((project, index) => (
-              <Link
-                key={project.id}
-                to={`/work/${project.id}`}
-                state={{ from: location.pathname }}
-                onMouseEnter={() => {
-                  setHoveredProject(project);
-                  setActiveTeaser(project);
-                }}
-                onMouseLeave={() => setHoveredProject(null)}
-                onFocus={() => {
-                  setHoveredProject(project);
-                  setActiveTeaser(project);
-                }}
-                onBlur={() => setHoveredProject(null)}
-                className="group flex cursor-pointer items-baseline justify-start gap-4 py-0 transition-colors no-underline text-inherit focus:outline-none focus:ring-1 focus:ring-ink/40"
-              >
-                <div className="grid items-baseline leading-snug w-full gap-2 lg:gap-4" style={{ gridTemplateColumns: '2.5rem minmax(11rem, 20rem) 1.5rem 1fr' }}>
-                  <span className={`text-[16px] font-mono transition-all duration-300 ${
-                    hoveredProject?.id === project.id 
-                      ? 'text-ink/75 line-through decoration-ink/75 decoration-[3px]' 
-                      : 'text-ink/65'
-                  }`}>
-                    {(index + 1).toString().padStart(2, '0')}
-                  </span>
-                  
-                  <h2 className={`text-[19px] lg:text-[22px] uppercase tracking-[0.1em] font-display truncate transition-all duration-300 ${
-                    hoveredProject?.id === project.id
-                      ? 'text-ink font-bold'
-                      : 'text-ink/75 group-hover:text-ink/85 font-bold'
-                  }`}>
-                    {project.name}
-                  </h2>
-
-                  <span 
-                    className={`text-[19px] font-bold transition-opacity duration-300 ${
-                      hoveredProject?.id === project.id ? 'opacity-100' : 'opacity-0'
+        {/* Desktop Project List (Aligned exactly beneath 'Selected', +2px Typography) */}
+        <div
+          className="hidden md:block w-full max-w-2xl text-left md:pl-[138px]"
+          style={{ paddingLeft: selectedLeft ? `${selectedLeft}px` : undefined }}
+        >
+          <div className={`space-y-0 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+            {filteredProjects.map((project) => {
+              const isHovered = hoveredProject?.id === project.id;
+              return (
+                <Link
+                  key={project.id}
+                  to={`/work/${project.id}`}
+                  state={{ from: location.pathname }}
+                  onMouseEnter={() => {
+                    setHoveredProject(project);
+                    setActiveTeaser(project);
+                  }}
+                  onMouseLeave={() => setHoveredProject(null)}
+                  onFocus={() => {
+                    setHoveredProject(project);
+                    setActiveTeaser(project);
+                  }}
+                  onBlur={() => setHoveredProject(null)}
+                  className="group grid grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline cursor-pointer no-underline text-inherit mb-[4.4px] leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2"
+                >
+                  <span
+                    className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
+                      isHovered ? 'opacity-100 text-ink' : 'opacity-55 group-hover:opacity-100 text-ink'
                     }`}
-                    style={{ fontWeight: 900 }}
-                    aria-hidden="true"
                   >
-                    <svg width='14' height='10' viewBox='0 0 14 10' fill='none' xmlns='http://www.w3.org/2000/svg' style={{ display: 'inline-block' }}>
-                      <path d='M1 5H13M13 5L9 1M13 5L9 9' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round'/>
-                    </svg>
+                    {project.name}
                   </span>
-
-                  <span className={`text-[15px] lg:text-[17px] uppercase tracking-[0.1em] truncate transition-all duration-300 ${
-                    hoveredProject?.id === project.id 
-                      ? 'text-ink/75' 
-                      : 'text-ink/65 group-hover:text-ink/85'
-                  }`}>
+                  <span
+                    className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
+                      isHovered ? 'opacity-75 text-ink' : 'opacity-40 group-hover:opacity-65 text-ink'
+                    }`}
+                  >
                     {project.client}
                   </span>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </div>
 
@@ -775,7 +744,7 @@ function MainView() {
         <div className="md:hidden">
           {activeCategory === 'Archive' ? (
             <div 
-              className={`fixed inset-0 overflow-y-auto z-10 px-3 pt-24 pb-12 transition-opacity duration-300 ${
+              className={`fixed inset-0 overflow-y-auto z-10 p-[8.5px] pt-16 pb-12 transition-opacity duration-300 ${
                 isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
               }`}
             >
@@ -834,11 +803,11 @@ function MainView() {
                     <Link
                       to={`/work/${project.id}`}
                       state={{ from: '/' }}
-                      className='absolute inset-0 flex flex-col items-center justify-center px-8 text-inherit no-underline focus:outline-none focus:ring-1 focus:ring-ink/40'
+                      className='absolute inset-0 flex flex-col items-center justify-end px-8 pb-16 sm:pb-20 text-inherit no-underline focus:outline-none focus:ring-1 focus:ring-ink/40'
                       aria-label={`View project: ${project.name}`}
                     >
-                      <p className='text-[13px] uppercase tracking-[0.3em] opacity-50 mb-3'>{project.client}</p>
-                      <h2 className='text-2xl uppercase tracking-[0.15em] font-bold text-center font-display'>
+                      <p className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold opacity-60 mb-1'>{project.client}</p>
+                      <h2 className='text-[15.6px] sm:text-[17px] leading-[22px] font-main font-normal text-center text-ink'>
                         {project.name}
                       </h2>
                     </Link>
@@ -930,46 +899,46 @@ function MainView() {
             {/* Underlying player contents become inert when credits dialog is open */}
             <div className="contents" inert={isCreditsOpen ? true : undefined}>
               {/* Mobile Header */}
-              <div className='flex md:hidden items-center justify-between p-6 sticky top-0 z-[80]'>
+              <div className='flex md:hidden items-center justify-between p-[8.5px] sticky top-0 z-[80] bg-transparent'>
                 {selectedProject.credits && selectedProject.credits.trim() !== '' && (
                   <StrikeButton
                     onClick={handleOpenCredits}
-                    className='text-[15px] uppercase tracking-widest opacity-75'
+                    className='text-[15.6px] leading-[22px] font-main opacity-75'
                   >
                     Credits
                   </StrikeButton>
                 )}
                 {(!selectedProject.credits || selectedProject.credits.trim() === '') && <div />}
-                <p className='text-[15px] uppercase tracking-[0.2em] font-bold absolute left-1/2 -translate-x-1/2 font-display'>{selectedProject.name}</p>
+                <p className='text-[15.6px] leading-[22px] font-heading font-semibold uppercase tracking-[0.08em] absolute left-1/2 -translate-x-1/2 text-ink'>{selectedProject.name}</p>
                 <StrikeButton
                   onClick={handleClosePlayer}
-                  className='text-[15px] uppercase tracking-widest opacity-75'
+                  className='text-[15.6px] leading-[22px] font-main opacity-75'
                 >
                   Close
                 </StrikeButton>
               </div>
 
               {/* Desktop Header */}
-              <div className='hidden md:flex sticky top-0 z-[80] items-center justify-between p-6 md:p-10 bg-transparent'>
-                <div className='flex items-center gap-10'>
+              <div className='hidden md:flex sticky top-0 z-[80] items-center justify-between p-5 md:p-6 bg-transparent'>
+                <div className='flex items-center gap-6'>
                   <StrikeButton
                     ref={playerCloseBtnRef}
                     onClick={handleClosePlayer}
-                    className='text-[22px] font-bold uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
+                    className='text-[15.6px] leading-[22px] font-main opacity-75 hover:opacity-100 transition-opacity'
                   >
                     Close
                   </StrikeButton>
                   {selectedProject.credits && selectedProject.credits.trim() !== '' && (
                     <StrikeButton
                       onClick={handleOpenCredits}
-                      className='text-[22px] font-bold uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity'
+                      className='text-[15.6px] leading-[22px] font-main opacity-75 hover:opacity-100 transition-opacity'
                     >
                       Credits
                     </StrikeButton>
                   )}
                 </div>
                 <div className='absolute left-1/2 -translate-x-1/2 text-center pointer-events-none'>
-                  <p className='text-[22px] uppercase tracking-[0.2em] font-bold font-display'>{selectedProject.name}</p>
+                  <p className='text-[15.6px] leading-[22px] font-heading font-semibold uppercase tracking-[0.08em] text-ink'>{selectedProject.name}</p>
                 </div>
                 <div />
               </div>
@@ -980,7 +949,7 @@ function MainView() {
                   {hasPrev && (
                     <StrikeButton
                       onClick={handlePrev}
-                      className='hidden md:flex absolute left-[-4rem] top-1/2 -translate-y-1/2 text-[20px] font-bold uppercase tracking-widest opacity-55 hover:opacity-100 transition-opacity'
+                      className='hidden md:flex absolute left-[-3.5rem] top-1/2 -translate-y-1/2 text-[15.6px] leading-[22px] font-main opacity-55 hover:opacity-100 transition-opacity'
                     >
                       Prev
                     </StrikeButton>
@@ -989,7 +958,7 @@ function MainView() {
                   <div style={{ width: '100%', maxWidth: '1152px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {hasVideoError ? (
                       <div className="flex flex-col items-center justify-center p-8 md:p-12 border border-white/10 bg-black/60 rounded-sm text-center max-w-lg mx-auto my-12 space-y-4">
-                        <p className="text-[13px] uppercase tracking-[0.2em] opacity-80 font-mono">Unable to load film</p>
+                        <p className="text-[13.6px] leading-[19px] font-main opacity-80">Unable to load film</p>
                         <div className="flex items-center gap-6 pt-2">
                           <button
                             onClick={() => {
@@ -999,7 +968,7 @@ function MainView() {
                                 videoRef.current.play().catch(() => {});
                               }
                             }}
-                            className="text-[12px] uppercase tracking-widest px-4 py-2 border border-white/20 hover:border-white/60 transition-colors"
+                            className="text-[13.6px] leading-[19px] font-main px-4 py-1.5 border border-white/20 hover:border-white/60 transition-colors"
                           >
                             Retry
                           </button>
@@ -1007,7 +976,7 @@ function MainView() {
                             href={selectedProject.videoUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[12px] uppercase tracking-widest opacity-70 hover:opacity-100 underline underline-offset-4 transition-opacity"
+                            className="text-[13.6px] leading-[19px] font-main opacity-70 hover:opacity-100 underline underline-offset-4 transition-opacity"
                           >
                             Open video directly
                           </a>
@@ -1052,7 +1021,7 @@ function MainView() {
                     {hasPrev && (
                       <StrikeButton
                         onClick={handlePrev}
-                        className='text-[15px] uppercase tracking-widest opacity-75'
+                        className='text-[15.6px] leading-[22px] font-main opacity-75'
                       >
                         Prev
                       </StrikeButton>
@@ -1061,7 +1030,7 @@ function MainView() {
                     {hasNext && (
                       <StrikeButton
                         onClick={handleNext}
-                        className='text-[15px] uppercase tracking-widest opacity-75'
+                        className='text-[15.6px] leading-[22px] font-main opacity-75'
                       >
                         Next
                       </StrikeButton>
@@ -1072,7 +1041,7 @@ function MainView() {
                   {hasNext && (
                     <StrikeButton
                       onClick={handleNext}
-                      className='hidden md:flex absolute right-[-4rem] top-1/2 -translate-y-1/2 text-[20px] font-bold uppercase tracking-widest opacity-55 hover:opacity-100 transition-opacity'
+                      className='hidden md:flex absolute right-[-3.5rem] top-1/2 -translate-y-1/2 text-[15.6px] leading-[22px] font-main opacity-55 hover:opacity-100 transition-opacity'
                     >
                       Next
                     </StrikeButton>
@@ -1132,27 +1101,27 @@ function MainView() {
                       e.stopPropagation();
                       handleCloseCredits();
                     }}
-                    className='absolute top-6 left-6 md:top-10 md:left-10 text-[16px] md:text-[20px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-ink/40'
+                    className='absolute top-5 left-5 md:top-6 md:left-6 text-[15.6px] leading-[22px] font-main opacity-75 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-ink/40'
                   >
                     Close
                   </button>
                   <div className='flex flex-col md:hidden w-full px-6 py-10 overflow-y-auto max-h-[80vh]' onClick={(e) => e.stopPropagation()}>
-                    <h4 className='text-[16px] uppercase tracking-[0.5em] font-bold mb-8 font-display'>Credits</h4>
-                    <div className='flex flex-col gap-5'>
+                    <h4 className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold mb-6 text-ink/50'>Credits</h4>
+                    <div className='flex flex-col gap-4'>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
                         const colonIndex = line.indexOf(':');
                         const role = line.substring(0, colonIndex).trim();
                         const name = line.substring(colonIndex + 1).trim();
                         return (
-                          <div key={`credit-${i}`} className='flex flex-col gap-1'>
-                            <span className='text-[12px] uppercase tracking-[0.2em] opacity-80'>{role}</span>
-                            <span className='text-[14px] uppercase tracking-[0.15em] font-bold opacity-100'>{name}</span>
+                          <div key={`credit-${i}`} className='flex flex-col gap-0.5'>
+                            <span className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold text-ink/50'>{role}</span>
+                            <span className='text-[15.6px] leading-[22px] font-main text-ink/95'>{name}</span>
                           </div>
                         );
                       })}
                     </div>
                     <button
-                      className='mt-10 text-[14px] uppercase tracking-widest opacity-75 text-left hover:opacity-100 transition-opacity'
+                      className='mt-8 text-[15.6px] leading-[22px] font-main opacity-75 text-left hover:opacity-100 transition-opacity'
                       onClick={handleCloseCredits}
                     >
                       Close
@@ -1160,19 +1129,19 @@ function MainView() {
                   </div>
 
                   <div
-                    className='hidden md:block max-w-3xl w-full px-16 py-14 rounded-sm overflow-y-auto max-h-[80vh]'
+                    className='hidden md:block max-w-2xl w-full px-12 py-12 rounded-sm overflow-y-auto max-h-[80vh]'
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <h4 className='text-[22px] uppercase tracking-[0.5em] font-bold mb-12 font-display'>Credits</h4>
-                    <div className='grid gap-y-4' style={{ gridTemplateColumns: '1fr 1fr' }}>
+                    <h4 className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold mb-8 text-ink/50'>Credits</h4>
+                    <div className='grid gap-y-3' style={{ gridTemplateColumns: '1fr 1fr' }}>
                       {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
                         const colonIndex = line.indexOf(':');
                         const role = line.substring(0, colonIndex).trim();
                         const name = line.substring(colonIndex + 1).trim();
                         return (
                           <div key={`credit-${i}`} className="contents">
-                            <span className='text-[18px] uppercase tracking-[0.15em] opacity-85 font-normal'>{role}</span>
-                            <span className='text-[18px] uppercase tracking-[0.15em] opacity-100 font-bold text-right'>{name}</span>
+                            <span className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold text-ink/50 self-baseline'>{role}</span>
+                            <span className='text-[15.6px] leading-[22px] font-main text-ink/95 text-right self-baseline'>{name}</span>
                           </div>
                         );
                       })}
@@ -1199,146 +1168,149 @@ function MainView() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto lg:items-start lg:justify-start lg:pt-[15vh] lg:px-10 bg-bg/85 backdrop-blur-sm"
+            transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
+            className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-bg/92 backdrop-blur-md"
             onClick={() => navigate('/')}
           >
+            {/* Top-Left Close Button matching reference corner padding 8.5px */}
             <button
-              ref={aboutCloseBtnRef}
+              ref={(el) => {
+                aboutCloseBtnRef.current = el;
+                closeButtonRef.current = el;
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 navigate('/');
               }}
-              className='flex md:hidden fixed top-6 right-6 text-[16px] uppercase tracking-widest opacity-75 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-ink/40'
+              aria-label="Close Info"
+              className="fixed top-5 left-5 md:top-6 md:left-6 z-[90] text-[15.6px] leading-[22px] font-main opacity-60 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-ink/40 cursor-pointer"
             >
               Close
             </button>
-            <div className='w-full px-6 pt-24 pb-12 flex flex-col gap-10 lg:hidden' onClick={(e) => e.stopPropagation()}>
-              <div className='w-full flex justify-center mb-2'>
-                <img
-                  src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
-                  alt="Janik Rai"
-                  className="w-full max-w-[280px] aspect-[3/4] object-cover rounded-sm select-none pointer-events-none"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className='flex flex-col gap-4'>
-                <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-80 font-bold'>Bio</h4>
-                <div className='flex flex-col gap-6 text-[15px] uppercase tracking-[0.15em] leading-loose opacity-100 typewriter-bio'>
-                  <p className="typewriter-bio">Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality.</p>
-                  {isBioExpanded && (
-                    <div id="bio-more-mobile" className="flex flex-col gap-6">
-                      <p className="typewriter-bio">Self-taught, Rai began his filmmaking career in music videos, working with some of the world’s biggest South Asian artists. It was through these early projects that he developed his approach to visual storytelling, which became the foundation of his commercial work.</p>
-                      <p className="typewriter-bio">Across commercials and branded content, his approach begins with what an image can communicate through behaviour, atmosphere and detail. He gives the gestures and interactions that make a moment believable as much attention as the frame itself.</p>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setIsBioExpanded(!isBioExpanded)}
-                    aria-expanded={isBioExpanded}
-                    aria-controls="bio-more-mobile"
-                    className="typewriter-bio text-[13px] uppercase tracking-[0.2em] underline underline-offset-4 decoration-ink/40 hover:decoration-ink opacity-70 hover:opacity-100 transition-all cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-ink/40 w-fit"
-                  >
-                    {isBioExpanded ? 'Less' : 'More'}
-                  </button>
-                </div>
-              </div>
-              <div className='flex flex-col gap-4'>
-                <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-80 font-bold'>Representation</h4>
-                <div className='flex flex-col gap-2 text-[15px] uppercase tracking-[0.2em] typewriter-bio'>
-                  <span className='opacity-80'>Canada</span>
-                  <a
-                    href='mailto:holly@alfredofilms.com'
-                    className='opacity-100 hover:opacity-60 transition-opacity typewriter-bio leading-relaxed'
-                  >
-                    Alfredo Films<br />
-                    Holly Rowden
-                  </a>
-                </div>
-              </div>
-              <div className='flex flex-col gap-4'>
-                <h4 className='text-[17px] uppercase tracking-[0.5em] opacity-80 font-bold'>Contact</h4>
-                <a href='mailto:contact@janikrai.com' className='text-[15px] uppercase tracking-[0.2em] opacity-100 hover:opacity-60 transition-opacity typewriter-bio'>contact@janikrai.com</a>
-                <div className='flex items-center gap-6'>
-                  <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' aria-label="Janik Rai on Vimeo" className='opacity-100 hover:opacity-60 transition-opacity'>
-                    <svg aria-hidden="true" width='18' height='18' viewBox='0 0 24 24' fill='currentColor'><path d='M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.087 3.479-3.131C5.002 2.764 6.166 2.125 6.912 2.056c1.735-.168 2.899 1.021 3.437 3.505.584 2.718.991 4.407 1.234 5.088.686 1.92 1.437 2.882 2.197 2.882.686 0 1.704-.861 3.063-2.617 1.339-1.736 2.054-3.054 2.093-3.926.084-1.485-.435-2.223-1.573-2.223-.568 0-1.151.131-1.768.393 1.167-3.831 3.411-5.691 6.703-5.619 2.351.066 3.454 1.585 3.279 4.177z'/></svg>
-                  </a>
-                  <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' aria-label="Janik Rai on Instagram" className='opacity-100 hover:opacity-60 transition-opacity'>
-                    <svg aria-hidden="true" width='18' height='18' viewBox='0 0 24 24' fill='currentColor'><path d='M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z'/></svg>
-                  </a>
-                </div>
-              </div>
-            </div>
 
+            {/* Main Info Canvas */}
             <div
-              className='hidden lg:flex flex-row items-start pb-20 w-full max-w-[1400px]'
+              className="w-full min-h-screen p-5 md:p-6 pt-20 md:pt-24 pb-16 flex flex-col justify-between flex-1 relative"
               onClick={(e) => e.stopPropagation()}
             >
-              <div
-                className="flex-shrink-0 animate-fade-in"
-                style={{
-                  width: infoContentLeft > 80 ? `${Math.min(300, infoContentLeft - 80)}px` : '260px',
-                  marginRight: '40px'
-                }}
-              >
-                <img
-                  src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
-                  alt="Janik Rai"
-                  className="w-full aspect-[3/4] object-cover rounded-sm select-none pointer-events-none"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
+              <div className="w-full flex flex-col lg:flex-row items-start justify-start">
+                {/* Left Editorial Column - restored to left side */}
+                <div className="w-full max-w-xl min-w-0">
+                  {/* Mobile Headshot (centred horizontally within Info page content frame with equal space on both sides) */}
+                  <div className="lg:hidden mb-6 flex justify-center sm:justify-start w-full">
+                    <img
+                      src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
+                      alt="Janik Rai"
+                      className="w-[180px] sm:w-[220px] aspect-[3/4] object-cover rounded-sm border border-white/10 shadow-xl select-none"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
 
-              <div className='flex flex-col gap-8 flex-1 min-w-0'>
-                <div className='flex flex-col gap-8 max-w-[60rem] pr-6 lg:pr-10'>
-                  <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold'>Bio</h4>
-                  <div className='flex flex-col gap-6 text-[16px] uppercase tracking-[0.2em] leading-loose typewriter-bio'>
-                    <p className='typewriter-bio'>Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality.</p>
+                  {/* Biography */}
+                  <div className="space-y-3.5">
+                    <p className="text-[15.6px] leading-[22px] text-ink/90 font-main font-normal">
+                      Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality.
+                    </p>
+
                     {isBioExpanded && (
-                      <div id="bio-more-desktop" className="flex flex-col gap-6">
-                        <p className='typewriter-bio'>Self-taught, Rai began his filmmaking career in music videos, working with some of the world’s biggest South Asian artists. It was through these early projects that he developed his approach to visual storytelling, which became the foundation of his commercial work.</p>
-                        <p className='typewriter-bio'>Across commercials and branded content, his approach begins with what an image can communicate through behaviour, atmosphere and detail. He gives the gestures and interactions that make a moment believable as much attention as the frame itself.</p>
+                      <div id="bio-more-content" className="space-y-3.5 pt-1">
+                        <p className="text-[15.6px] leading-[22px] text-ink/90 font-main font-normal">
+                          Self-taught, Rai began his filmmaking career in music videos, working with some of the world’s biggest South Asian artists. It was through these early projects that he developed his approach to visual storytelling, which became the foundation of his commercial work.
+                        </p>
+                        <p className="text-[15.6px] leading-[22px] text-ink/90 font-main font-normal">
+                          Across commercials and branded content, his approach begins with what an image can communicate through behaviour, atmosphere and detail. He gives the gestures and interactions that make a moment believable as much attention as the frame itself.
+                        </p>
                       </div>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setIsBioExpanded(!isBioExpanded)}
-                      aria-expanded={isBioExpanded}
-                      aria-controls="bio-more-desktop"
-                      className="typewriter-bio text-[13px] lg:text-[14px] uppercase tracking-[0.2em] underline underline-offset-4 decoration-ink/40 hover:decoration-ink opacity-70 hover:opacity-100 transition-all cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-ink/40 w-fit"
-                    >
-                      {isBioExpanded ? 'Less' : 'More'}
-                    </button>
-                  </div>
-                </div>
 
-                <div className='flex flex-col gap-6'>
-                  <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold'>Representation</h4>
-                  <div className='flex flex-col gap-2 text-[16px] uppercase tracking-[0.2em] typewriter-bio'>
-                    <span className='opacity-80'>Canada</span>
-                    <a
-                      href='mailto:holly@alfredofilms.com'
-                      className='typewriter-bio hover:opacity-60 transition-opacity leading-relaxed'
-                    >
-                      Alfredo Films<br />
-                      Holly Rowden
-                    </a>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setIsBioExpanded(!isBioExpanded)}
+                        aria-expanded={isBioExpanded}
+                        aria-controls="bio-more-content"
+                        className="inline-block text-[15.6px] leading-[22px] font-main italic underline underline-offset-4 decoration-ink/40 hover:decoration-ink opacity-70 hover:opacity-100 transition-all cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-ink/40"
+                      >
+                        {isBioExpanded ? 'Less' : 'More'}
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                <div className='flex flex-col gap-6'>
-                  <h4 className='text-[16px] uppercase tracking-[0.5em] opacity-40 font-bold'>Contact</h4>
-                  <div className='flex flex-col gap-5'>
-                    <a href='mailto:contact@janikrai.com' className='text-[16px] uppercase tracking-[0.2em] typewriter-bio hover:opacity-60 transition-opacity'>contact@janikrai.com</a>
-                    <div className='flex items-center gap-6'>
-                      <a href='https://vimeo.com/janikrai' target='_blank' rel='noopener noreferrer' aria-label="Janik Rai on Vimeo" className='opacity-100 hover:opacity-60 transition-opacity'>
-                        <svg aria-hidden="true" width='18' height='18' viewBox='0 0 24 24' fill='currentColor'><path d='M23.977 6.416c-.105 2.338-1.739 5.543-4.894 9.609-3.268 4.247-6.026 6.37-8.29 6.37-1.409 0-2.578-1.294-3.553-3.881L5.322 11.4C4.603 8.816 3.834 7.522 3.01 7.522c-.179 0-.806.378-1.881 1.132L0 7.197c1.185-1.044 2.351-2.087 3.479-3.131C5.002 2.764 6.166 2.125 6.912 2.056c1.735-.168 2.899 1.021 3.437 3.505.584 2.718.991 4.407 1.234 5.088.686 1.92 1.437 2.882 2.197 2.882.686 0 1.704-.861 3.063-2.617 1.339-1.736 2.054-3.054 2.093-3.926.084-1.485-.435-2.223-1.573-2.223-.568 0-1.151.131-1.768.393 1.167-3.831 3.411-5.691 6.703-5.619 2.351.066 3.454 1.585 3.279 4.177z'/></svg>
-                      </a>
-                      <a href='https://www.instagram.com/janikrai' target='_blank' rel='noopener noreferrer' aria-label="Janik Rai on Instagram" className='opacity-100 hover:opacity-60 transition-opacity'>
-                        <svg aria-hidden="true" width='18' height='18' viewBox='0 0 24 24' fill='currentColor'><path d='M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z'/></svg>
-                      </a>
+                  {/* Metadata Sections: CONTACT, WORK, REPRESENTATION */}
+                  <div className="mt-12 md:mt-16 space-y-6 md:space-y-7">
+                    {/* Contact */}
+                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
+                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-ink/50 select-none">
+                        Contact
+                      </span>
+                      <div className="text-[15.6px] leading-[22px] font-main text-ink/90">
+                        <a
+                          href="mailto:contact@janikrai.com"
+                          className="hover:opacity-60 transition-opacity inline-block"
+                        >
+                          contact@janikrai.com
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Work */}
+                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
+                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-ink/50 select-none">
+                        Work
+                      </span>
+                      <div className="flex flex-col gap-1 text-[15.6px] leading-[22px] font-main text-ink/90">
+                        <a
+                          href="https://vimeo.com/janikrai"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:opacity-60 transition-opacity inline-block w-fit"
+                        >
+                          Vimeo
+                        </a>
+                        <a
+                          href="https://www.instagram.com/janikrai"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:opacity-60 transition-opacity inline-block w-fit"
+                        >
+                          Instagram
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Representation */}
+                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
+                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-ink/50 select-none">
+                        Representation
+                      </span>
+                      <div className="text-[15.6px] leading-[22px] font-main text-ink/90">
+                        <a
+                          href="mailto:holly@alfredofilms.com"
+                          className="hover:opacity-60 transition-opacity inline-block"
+                        >
+                          Alfredo (Canada)
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                {/* Right Column: Desktop Headshot - exactly preserved in current middle-right position and size */}
+                <div className="hidden lg:block absolute left-[calc(50%+160px)] xl:left-[calc(50%+180px)] top-20 md:top-24 flex-shrink-0">
+                  <div className="w-[220px] xl:w-[250px]">
+                    <img
+                      src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
+                      alt="Janik Rai"
+                      className="w-full aspect-[3/4] object-cover rounded-sm border border-white/10 shadow-2xl select-none"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Copyright matching reference footer placement */}
+              <div className="pt-16 md:pt-20 text-[15.6px] leading-[22px] font-main text-ink/40">
+                <p>Janik Rai © All Rights Reserved</p>
               </div>
             </div>
           </motion.div>
