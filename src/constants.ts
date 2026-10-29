@@ -33,7 +33,24 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/this_is_home_-_vancouver_bandits_v1%20(2160p).mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/Bandits_Teaser.mp4',
     ratio: 'contain',
-    credits: '',
+    credits: `EP: Milan Mann, Janik Rai
+Producer: Kenny Macintyre
+Director: Janik Rai
+PM: Manuel Thompson
+DP: Chris Ajtony
+1st AC: Raghava Payment
+2nd AC: Aron Zhang
+Gaffer: Theo Christianson
+Key Grip: Juan Ortiz
+Swings: Karthik Sharmap, Vera Arthur, Sammy Vu, Jugraj Singh Mann
+Post House: Birthday Editorial
+Editor: Steven Tsinokas
+Post Producer: Renzo Sunga
+Colour House: Artjail
+Colourist: Clinton Homuth
+Colourist Assist: Austin Tang
+Music Composition & Mix: Adrian Bellaire
+VFX: Miguel Fernandes`,
     stills: [
       'https://janikrai.b-cdn.net/Stills/Bandits/Bandits10.jpeg',
       'https://janikrai.b-cdn.net/Stills/Bandits/Bandits12.jpeg',
@@ -78,7 +95,7 @@ Post House: Birthday Editorial
 Editor: Steven Tsinokas
 EP: Renzo Sunga
 Sound: Adrian Bellaire
-Colour: Clinton Homouth
+Colourist: Clinton Homouth
 Colour House: Artjail
 VFX: Zee Khan`,
   },
@@ -93,7 +110,7 @@ VFX: Zee Khan`,
     laurelUrls: [
       'https://janikrai.b-cdn.net/Laurels/IMG_0451.png'
     ],
-    credits: 'Producers: Janik Rai, Sagar Deol, Albert Banahene\nDirector: Janik Rai\nDirector of Photography: Chris Ajtony\n1st AC: Adrian Kube\nGaffer: Peter Phamm\nSwing: Mac Boyle, Tanner Smith\nDrone Op: Nick McDonough\nEditor: Melissa Lam\nSound: Callum Wilson & Glyn Allen\nMusic: Jonathan K\nColour: Clinton Homuth\nColour Producer: Alison Kinnear\nColour Assist: Austin Tang',
+    credits: 'Producers: Janik Rai, Sagar Deol, Albert Banahene\nDirector: Janik Rai\nDP: Chris Ajtony\n1st AC: Adrian Kube\nGaffer: Peter Phamm\nSwing: Mac Boyle, Tanner Smith\nDrone Op: Nick McDonough\nEditor: Melissa Lam\nSound: Callum Wilson & Glyn Allen\nMusic: Jonathan K\nColourist: Clinton Homuth\nColour Producer: Alison Kinnear\nColourist Assist: Austin Tang',
     stills: [
       'https://janikrai.b-cdn.net/Stills/farm-to-table/farm-to-table_1.jpg',
       'https://janikrai.b-cdn.net/Stills/farm-to-table/farm-to-table_2.jpg',
@@ -117,7 +134,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/for-her.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/for-her.mp4',
     ratio: 'contain',
-    credits: 'EP: Glenn Love\nDirector: Janik Rai\nDirector of Photography: Chris Ajtony\n1st AC: Ronald Lee\nGaffer: Luke Hubner\nSwing: Peter Yu\nProduction Design: Alyssa Thomas\nEditor: Davane\nSound: Jonathan K\nColour: So Young Park\nCasting Director: Snejina Stoilova\nCasting Agency: Alaeria Artists',
+    credits: 'EP: Glenn Love\nDirector: Janik Rai\nDP: Chris Ajtony\n1st AC: Ronald Lee\nGaffer: Luke Hubner\nSwing: Peter Yu\nProduction Design: Alyssa Thomas\nEditor: Davane\nSound: Jonathan K\nColourist: So Young Park\nCasting Director: Snejina Stoilova\nCasting Agency: Alaeria Artists',
     stills: [
       'https://janikrai.b-cdn.net/Stills/for-her/for-her1.jpeg',
       'https://janikrai.b-cdn.net/Stills/for-her/for-her2.jpeg',
@@ -137,7 +154,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/bliss.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/bliss.mp4',
     ratio: 'contain',
-    credits: 'Director: Janik Rai\nProducer: Sagar Deol\nDirector of Photography: Nate Magnuson\nEditor: Janik Rai & Jeremy Chen\nColour: João Homem\nComposer: Glyn Allen\nSound: Jordan Burgess',
+    credits: 'Director: Janik Rai\nProducer: Sagar Deol\nDP: Nate Magnuson\nEditor: Janik Rai & Jeremy Chen\nColourist: João Homem\nComposer: Glyn Allen\nSound: Jordan Burgess',
     stills: [
       'https://janikrai.b-cdn.net/Stills/bliss/Bliss1.jpg',
       'https://janikrai.b-cdn.net/Stills/bliss/Bliss2.jpg',
@@ -157,7 +174,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/barcelos.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/barcelos.mp4',
     ratio: 'contain',
-    credits: 'Director: Janik Rai\nProducer: Dhun Sharma & Sagar Deol\nDirector of Photography: Chris Ajtony\nGaffer: Mike Pintea\nKey Grip: Dayton Lewis\nFirst Assistant Camera: Miguel M\nEditor: Hayley Sawatzky\nMusic: Glyn Allen\nColour: João Homem\nCamera: Keslow Camera',
+    credits: 'Director: Janik Rai\nProducer: Dhun Sharma & Sagar Deol\nDP: Chris Ajtony\nGaffer: Mike Pintea\nKey Grip: Dayton Lewis\n1st AC: Miguel M\nEditor: Hayley Sawatzky\nMusic: Glyn Allen\nColourist: João Homem\nCamera: Keslow Camera',
     stills: [
       'https://janikrai.b-cdn.net/Stills/Barcelos/barcelos_1.jpg',
       'https://janikrai.b-cdn.net/Stills/Barcelos/barcelos_2.jpg',
@@ -177,7 +194,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/stillness.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/stillness.mp4',
     ratio: 'cover',
-    credits: 'Director: Janik Rai\nDirector of Photography: Chris Ajtony\nMacro Director of Photography: Nate Magnuson\nEditor: Janik Rai & Davanè\nColour: João Homem\nComposer & Sound: Yetsho\nVFX: Davanè',
+    credits: 'Director: Janik Rai\nDP: Chris Ajtony\nMacro DP: Nate Magnuson\nEditor: Janik Rai & Davanè\nColourist: João Homem\nComposer & Sound: Yetsho\nVFX: Davanè',
     stills: [
       'https://janikrai.b-cdn.net/Stills/stillness/Meditation1.jpeg',
       'https://janikrai.b-cdn.net/Stills/stillness/Meditation2.jpeg',
@@ -193,7 +210,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/light-betwee-us.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/light-between-us.mp4',
     ratio: 'contain',
-    credits: 'Writer & Director: Janik Rai\nProducer: Marcus Fang & Antony Packer\nDirector of Photography: Chris Ajtony\nGaffer: Peter Pham\nKey Grip: Alessandro Guerrera\nAC: Alessio Trani\nProduction Designer: Jasleen Notay\nEdit: Janik Rai & Davané\nMusic: Landon Trimble\nSound: Kevin Parker & Lucifer Media Labs\nColour: Joao Homem\nVFX: Navi Joshi\nBTS: Noah Pope\nProduction Company: Workshop Film Company',
+    credits: 'Writer & Director: Janik Rai\nProducer: Marcus Fang & Antony Packer\nDP: Chris Ajtony\nGaffer: Peter Pham\nKey Grip: Alessandro Guerrera\nAC: Alessio Trani\nProduction Designer: Jasleen Notay\nEdit: Janik Rai & Davané\nMusic: Landon Trimble\nSound: Kevin Parker & Lucifer Media Labs\nColourist: Joao Homem\nVFX: Navi Joshi\nBTS: Noah Pope\nProduction Company: Workshop Film Company',
     stills: [
       'https://janikrai.b-cdn.net/Stills/light-between-us/Nanak_Diwali1.jpg',
       'https://janikrai.b-cdn.net/Stills/light-between-us/Nanak_Diwali2.jpg',
@@ -213,7 +230,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/still-close.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/still-close.mp4',
     ratio: 'contain',
-    credits: 'Writer & Director: Janik Rai\nDirector of Photography: Jan Klompje\nAC: Sagar Deol\nArt Director: Deep Dhillon\nProduction Manager: Parm Sidhu\nEdit: Janik Rai & Davané\nSound: Lucifer Media Labs\nColour: Joao Homem\nBTS: Khush Sandhu',
+    credits: 'Writer & Director: Janik Rai\nDP: Jan Klompje\nAC: Sagar Deol\nArt Director: Deep Dhillon\nPM: Parm Sidhu\nEdit: Janik Rai & Davané\nSound: Lucifer Media Labs\nColourist: Joao Homem\nBTS: Khush Sandhu',
     stills: [
       'https://janikrai.b-cdn.net/Stills/still-close/still-close_1.jpeg',
       'https://janikrai.b-cdn.net/Stills/still-close/still-close_2.jpeg',
@@ -233,7 +250,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/push.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/push.mp4',
     ratio: 'cover',
-    credits: 'Director: Janik Rai\nProducer: Sagar Deol\nDirector of Photography: Nate Magnuson\nEditor: Jeremy Chen\nColour: NMV Film Co.\nComposer & Sound: Glyn Allen\nVFX: Michael Gladkey\nB Camera Operator: Mitchell Cook\n1st AC: Dayton Lewis\n1st AC: Alex Chan\nGaffer: Robert Zastre\nLX Swing: Marcos G\nKey Grip: Kyle Wasylowich\nRigging Grip: James Glezos\nSet Designer: Rebekah G\nBTS: Oliver Cao\nCamera Rental: NMV Film Co.',
+    credits: 'Director: Janik Rai\nProducer: Sagar Deol\nDP: Nate Magnuson\nEditor: Jeremy Chen\nColour House: NMV Film Co.\nComposer & Sound: Glyn Allen\nVFX: Michael Gladkey\nB Camera Operator: Mitchell Cook\n1st AC: Dayton Lewis\n1st AC: Alex Chan\nGaffer: Robert Zastre\nLX Swing: Marcos G\nKey Grip: Kyle Wasylowich\nRigging Grip: James Glezos\nSet Designer: Rebekah G\nBTS: Oliver Cao\nCamera Rental: NMV Film Co.',
     stills: [
       'https://janikrai.b-cdn.net/Stills/push/push_1.jpg',
       'https://janikrai.b-cdn.net/Stills/push/push_2.jpg',
@@ -254,7 +271,7 @@ VFX: Zee Khan`,
       'https://janikrai.b-cdn.net/Laurels/IMG_1584-modified.png',
       'https://janikrai.b-cdn.net/Laurels/IMG_0451.png'
     ],
-    credits: 'Writer & Director: Janik Rai\nProducer: Sagar Deol\nDirector of Photography: Jan Klompje\nEditor & Colour: Jeremy Chen\nComposer & Sound: Alex Krotz\nProduction Designer: Georgia Hartman\nProduction Coordinator: Talia Adora\n1st AD: Patrick Gaudet\n2nd AD: Glenn Love\n3rd AD: Christopher Kormish\n1st AC: Mikael Bidard\n2nd AC: Jordan Fleming\nGaffer: Greg Goudreau\nKey Grip: Andrei Lyksov\nAssistant Head LX: Adriana Hankins\nAssistant Key Grip: Brian Johnson\nCostume Coordinator: Marcela Bucher\nSet Dresser: Maria Garcia\nStylist: Pam Gill\nHair & Makeup: Kiera Castro, Elena J Miller\nHair (Sonam Bajwa): Raj Mand\nMakeup (Sonam Bajwa): Saloni Sagar',
+    credits: 'Writer & Director: Janik Rai\nProducer: Sagar Deol\nDP: Jan Klompje\nEditor & Colourist: Jeremy Chen\nComposer & Sound: Alex Krotz\nProduction Designer: Georgia Hartman\nProduction Coordinator: Talia Adora\n1st AD: Patrick Gaudet\n2nd AD: Glenn Love\n3rd AD: Christopher Kormish\n1st AC: Mikael Bidard\n2nd AC: Jordan Fleming\nGaffer: Greg Goudreau\nKey Grip: Andrei Lyksov\nAssistant Head LX: Adriana Hankins\nAssistant Key Grip: Brian Johnson\nCostume Coordinator: Marcela Bucher\nSet Dresser: Maria Garcia\nStylist: Pam Gill\nHair & Makeup: Kiera Castro, Elena J Miller\nHair (Sonam Bajwa): Raj Mand\nMakeup (Sonam Bajwa): Saloni Sagar',
     stills: [
       'https://janikrai.b-cdn.net/Stills/eternity/eternity1.jpg',
       'https://janikrai.b-cdn.net/Stills/eternity/eternity2.jpg',

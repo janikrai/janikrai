@@ -152,6 +152,7 @@ function MainView() {
   const [duration, setDuration] = useState(0);
   const [progress, setProgress] = useState(0);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [isHoveringControl, setIsHoveringControl] = useState(false);
   const [isControlsFocused, setIsControlsFocused] = useState(false);
@@ -474,6 +475,7 @@ function MainView() {
     setProgress(0);
     setCurrentTime(0);
     setIsControlsVisible(true);
+    setIsBuffering(true);
 
     const video = videoRef.current;
     if (!selectedProject || !video) return;
@@ -502,6 +504,7 @@ function MainView() {
             .catch(() => {
               // Blocked completely; show visible Play control gracefully
               setIsPlaying(false);
+              setIsBuffering(false);
             });
         });
     }
@@ -512,7 +515,7 @@ function MainView() {
     };
   }, [selectedProject?.id]);
 
-  // Inactivity timer for fading the entire video interface after 2 seconds
+  // Inactivity timer for fading the entire video interface after 1 second
   const clearInactivityTimer = useCallback(() => {
     if (inactivityTimerRef.current) {
       clearTimeout(inactivityTimerRef.current);
@@ -522,24 +525,28 @@ function MainView() {
 
   const startInactivityTimer = useCallback(() => {
     clearInactivityTimer();
-    if (isPlaying && !isSeeking && !isControlsFocused && !isCreditsOpen && !isStillsOpen) {
+    const isActuallyPlaying = videoRef.current ? !videoRef.current.paused : isPlaying;
+    if (isActuallyPlaying && !isSeeking && !isBuffering && !isControlsFocused && !isCreditsOpen && !isStillsOpen) {
       inactivityTimerRef.current = setTimeout(() => {
         setIsControlsVisible(false);
       }, 1000);
     }
-  }, [isPlaying, isSeeking, isControlsFocused, isCreditsOpen, isStillsOpen, clearInactivityTimer]);
+  }, [isPlaying, isSeeking, isBuffering, isControlsFocused, isCreditsOpen, isStillsOpen, clearInactivityTimer]);
 
   useEffect(() => {
-    if (!isPlaying || isSeeking || isControlsFocused || isCreditsOpen || isStillsOpen) {
+    if (!isPlaying || isBuffering || isSeeking || isControlsFocused || isCreditsOpen || isStillsOpen) {
       setIsControlsVisible(true);
       clearInactivityTimer();
     } else {
-      startInactivityTimer();
+      // On desktop/tablet, preserve visibility behavior
+      if (isDesktop) {
+        startInactivityTimer();
+      }
     }
     return () => {
       clearInactivityTimer();
     };
-  }, [isPlaying, isSeeking, isControlsFocused, isCreditsOpen, isStillsOpen, clearInactivityTimer, startInactivityTimer]);
+  }, [isPlaying, isBuffering, isSeeking, isControlsFocused, isCreditsOpen, isStillsOpen, isDesktop, clearInactivityTimer, startInactivityTimer]);
 
   // Window pointermove listener when player is open: any pointer move reveals controls and resets the 1s inactivity countdown
   useEffect(() => {
@@ -825,11 +832,13 @@ function MainView() {
     if (isCreditsOpen || isStillsOpen) return;
     if (!isControlsVisible) {
       setIsControlsVisible(true);
-      startInactivityTimer();
+      if (videoRef.current ? !videoRef.current.paused : isPlaying) {
+        startInactivityTimer();
+      }
       return;
     }
     togglePlay();
-  }, [isCreditsOpen, isStillsOpen, isControlsVisible, startInactivityTimer, togglePlay]);
+  }, [isCreditsOpen, isStillsOpen, isControlsVisible, isPlaying, startInactivityTimer, togglePlay]);
 
   // Keyboard navigation, Space to play/pause, and Escape hierarchy
   useEffect(() => {
@@ -1041,9 +1050,9 @@ function MainView() {
         ) : (
           <>
             <title>Janik Rai — Commercial Director</title>
-            <meta name="description" content="Toronto-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
+            <meta name="description" content="British-Canadian commercial director balancing striking imagery with a raw, human sensibility. Cinematic composition grounded in lived reality." />
             <meta property="og:title" content="Janik Rai — Commercial Director" />
-            <meta property="og:description" content="Toronto-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
+            <meta property="og:description" content="British-Canadian commercial director balancing striking imagery with a raw, human sensibility. Cinematic composition grounded in lived reality." />
             <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
             <meta property="og:image:width" content="414" />
             <meta property="og:image:height" content="414" />
@@ -1051,7 +1060,7 @@ function MainView() {
             <meta property="og:type" content="website" />
             <meta name="twitter:card" content="summary_large_image" />
             <meta name="twitter:title" content="Janik Rai — Commercial Director" />
-            <meta name="twitter:description" content="Toronto-based commercial director. Cinematic, narrative-driven work for BMW, Spotify, Powerade, Apple Music, and more." />
+            <meta name="twitter:description" content="British-Canadian commercial director balancing striking imagery with a raw, human sensibility. Cinematic composition grounded in lived reality." />
             <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
             <link rel="canonical" href="https://janikrai.com" />
           </>
@@ -1356,14 +1365,48 @@ function MainView() {
                 playsInline
                 preload="auto"
                 onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
+                onPlaying={() => {
+                  setIsPlaying(true);
+                  setIsBuffering(false);
+                  startInactivityTimer();
+                }}
+                onWaiting={() => {
+                  setIsBuffering(true);
+                  clearInactivityTimer();
+                  setIsControlsVisible(true);
+                }}
+                onLoadStart={() => {
+                  setIsBuffering(true);
+                  clearInactivityTimer();
+                  setIsControlsVisible(true);
+                }}
+                onSeeking={() => {
+                  clearInactivityTimer();
+                  setIsControlsVisible(true);
+                }}
+                onSeeked={() => {
+                  if (videoRef.current ? !videoRef.current.paused : isPlaying) {
+                    startInactivityTimer();
+                  }
+                }}
+                onPause={() => {
+                  setIsPlaying(false);
+                  clearInactivityTimer();
+                  setIsControlsVisible(true);
+                }}
                 onEnded={() => {
                   setIsPlaying(false);
+                  clearInactivityTimer();
                   setIsControlsVisible(true);
                 }}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
-                onError={() => setHasVideoError(true)}
+                onError={() => {
+                  setHasVideoError(true);
+                  setIsBuffering(false);
+                  clearInactivityTimer();
+                  setIsControlsVisible(true);
+                }}
                 className={`w-full h-full ${isFullscreen ? 'object-contain' : 'object-cover'} pointer-events-none select-none bg-black`}
               />
             </div>
@@ -1550,7 +1593,7 @@ function MainView() {
                 className="w-full px-5 md:px-6 items-center grid grid-cols-[1fr_auto_1fr] pointer-events-none"
               >
                 {/* Left Control Group: Compact Navigation Pair (Previous + Next), Play */}
-                <div className="flex items-center justify-between w-full max-w-[500px] lg:max-w-[560px] xl:max-w-[620px] justify-self-start pl-[68px] sm:pl-[78px] md:pl-[88px] pr-8 lg:pr-14 xl:pr-16">
+                <div className="flex items-center justify-between w-full max-w-[500px] lg:max-w-[560px] xl:max-w-[620px] justify-self-start pl-[20px] sm:pl-[28px] md:pl-[36px] pr-8 lg:pr-14 xl:pr-16">
                   {/* Compact Navigation Pair: Previous & Next with ~30% further reduced gap */}
                   <div className="flex items-center gap-[50px] lg:gap-[60px] xl:gap-[68px]">
                     {/* Previous Film */}
@@ -1709,6 +1752,11 @@ function MainView() {
             <div
               inert={isCreditsOpen || isStillsOpen ? true : undefined}
               aria-hidden={isCreditsOpen || isStillsOpen ? true : undefined}
+              style={{
+                paddingLeft: 'max(1.5rem, env(safe-area-inset-left, 0px))',
+                paddingRight: 'max(1.5rem, env(safe-area-inset-right, 0px))',
+                paddingBottom: 'max(2rem, env(safe-area-inset-bottom, 0px))'
+              }}
               className={`flex md:hidden fixed bottom-0 left-0 right-0 z-[70] px-6 pb-8 sm:pb-10 pt-4 pointer-events-none transition-opacity duration-300 ease-out motion-reduce:transition-none ${
                 isCreditsOpen || isStillsOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-none'
               }`}
@@ -1825,9 +1873,14 @@ function MainView() {
                     </button>
                   </div>
 
-                  {/* Compact Navigation Pair: Previous anchored at exact center of screen, Next closer by ~40% */}
-                  <div className="absolute left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
-                    <div className="relative flex items-center">
+                  {/* Compact Navigation Pair: Positioned as one responsive navigation group */}
+                  <div
+                    className="absolute -translate-x-1/2 flex items-center pointer-events-none"
+                    style={{
+                      left: 'max(calc(50% - 48px), calc(env(safe-area-inset-left, 0px) + 88px))'
+                    }}
+                  >
+                    <div className="flex items-center gap-[50px] sm:gap-[58px] pointer-events-auto">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1836,25 +1889,23 @@ function MainView() {
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
                         aria-label={prevProject ? `Previous project: ${prevProject.name}` : 'Previous project'}
-                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none"
+                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none whitespace-nowrap"
                       >
                         Previous
                       </button>
 
-                      <div className="absolute left-full pl-[58px] sm:pl-[64px] whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleNext();
-                          }}
-                          onPointerDown={(e) => e.stopPropagation()}
-                          aria-label={nextProject ? `Next project: ${nextProject.name}` : 'Next project'}
-                          className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none"
-                        >
-                          Next
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNext();
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        aria-label={nextProject ? `Next project: ${nextProject.name}` : 'Next project'}
+                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none whitespace-nowrap"
+                      >
+                        Next
+                      </button>
                     </div>
                   </div>
                 </div>
