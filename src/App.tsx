@@ -427,17 +427,43 @@ function MainView() {
   }, [activeCategory]);
 
   // Fullscreen change tracking
+  // Fullscreen change tracking across desktop and mobile (including iOS video events)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement));
+      const isDocFs = Boolean(
+        document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      const isVideoFs = Boolean(videoRef.current && (videoRef.current as any).webkitDisplayingFullscreen);
+      setIsFullscreen(isDocFs || isVideoFs);
     };
+
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    const videoEl = videoRef.current;
+    const onVideoFsEnter = () => setIsFullscreen(true);
+    const onVideoFsExit = () => setIsFullscreen(false);
+    if (videoEl) {
+      videoEl.addEventListener('webkitbeginfullscreen', onVideoFsEnter);
+      videoEl.addEventListener('webkitendfullscreen', onVideoFsExit);
+    }
+
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+      if (videoEl) {
+        videoEl.removeEventListener('webkitbeginfullscreen', onVideoFsEnter);
+        videoEl.removeEventListener('webkitendfullscreen', onVideoFsExit);
+      }
     };
-  }, []);
+  }, [selectedProject?.id]);
 
   // When switching project in full-film player: unmuted autoplay with fallback
   useEffect(() => {
@@ -499,7 +525,7 @@ function MainView() {
     if (isPlaying && !isSeeking && !isControlsFocused && !isCreditsOpen && !isStillsOpen) {
       inactivityTimerRef.current = setTimeout(() => {
         setIsControlsVisible(false);
-      }, 2000);
+      }, 1000);
     }
   }, [isPlaying, isSeeking, isControlsFocused, isCreditsOpen, isStillsOpen, clearInactivityTimer]);
 
@@ -515,7 +541,7 @@ function MainView() {
     };
   }, [isPlaying, isSeeking, isControlsFocused, isCreditsOpen, isStillsOpen, clearInactivityTimer, startInactivityTimer]);
 
-  // Window pointermove listener when player is open: any pointer move reveals controls and resets the 3s inactivity countdown
+  // Window pointermove listener when player is open: any pointer move reveals controls and resets the 1s inactivity countdown
   useEffect(() => {
     if (!selectedProject) return;
 
@@ -530,7 +556,10 @@ function MainView() {
     };
   }, [selectedProject, startInactivityTimer]);
 
-  const togglePlay = useCallback(() => {
+  const togglePlay = useCallback((e?: React.SyntheticEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
@@ -543,39 +572,96 @@ function MainView() {
     }
   }, []);
 
-  const toggleSound = useCallback(() => {
+  const toggleSound = useCallback((e?: React.SyntheticEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
     const video = videoRef.current;
     if (!video) return;
     if (isMuted || video.muted || video.volume === 0) {
       video.muted = false;
-      video.volume = savedVolumeRef.current > 0 ? savedVolumeRef.current : 1;
+      const vol = savedVolumeRef.current > 0 ? savedVolumeRef.current : 1;
+      video.volume = vol;
       setIsMuted(false);
+      // Ensure playback continues smoothly when unmuted on mobile browsers
+      if (video.paused && isPlaying) {
+        video.play().catch(() => {});
+      }
     } else {
       savedVolumeRef.current = video.volume > 0 ? video.volume : 1;
       video.muted = true;
       setIsMuted(true);
     }
-  }, [isMuted]);
+  }, [isMuted, isPlaying]);
 
-  const toggleFullscreen = useCallback(() => {
+  const toggleFullscreen = useCallback((e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     const el = playerContainerRef.current;
-    if (!el) return;
-    if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
-      if (el.requestFullscreen) {
-        el.requestFullscreen().catch(() => {});
-      } else if ((el as any).webkitRequestFullscreen) {
-        (el as any).webkitRequestFullscreen();
-      } else if (videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
-        (videoRef.current as any).webkitEnterFullscreen();
+    const video = videoRef.current;
+
+    const isCurrentlyFullscreen = Boolean(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement ||
+      (video && (video as any).webkitDisplayingFullscreen) ||
+      isFullscreen
+    );
+
+    if (!isCurrentlyFullscreen) {
+      // Enter Fullscreen directly from user tap
+      if (el && el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {
+          if (video && (video as any).webkitEnterFullscreen) {
+            try {
+              (video as any).webkitEnterFullscreen();
+            } catch {}
+          }
+        });
+      } else if (el && (el as any).webkitRequestFullscreen) {
+        try {
+          (el as any).webkitRequestFullscreen();
+        } catch {
+          if (video && (video as any).webkitEnterFullscreen) {
+            try {
+              (video as any).webkitEnterFullscreen();
+            } catch {}
+          }
+        }
+      } else if (video && (video as any).webkitEnterFullscreen) {
+        try {
+          (video as any).webkitEnterFullscreen();
+        } catch {}
       }
     } else {
+      // Exit Fullscreen
       if (document.exitFullscreen) {
         document.exitFullscreen().catch(() => {});
       } else if ((document as any).webkitExitFullscreen) {
-        (document as any).webkitExitFullscreen();
+        try {
+          (document as any).webkitExitFullscreen();
+        } catch {}
+      } else if ((document as any).mozCancelFullScreen) {
+        try {
+          (document as any).mozCancelFullScreen();
+        } catch {}
+      } else if ((document as any).msExitFullscreen) {
+        try {
+          (document as any).msExitFullscreen();
+        } catch {}
       }
+
+      if (video && (video as any).webkitExitFullscreen) {
+        try {
+          (video as any).webkitExitFullscreen();
+        } catch {}
+      }
+      setIsFullscreen(false);
     }
-  }, []);
+  }, [isFullscreen]);
 
   const handleTimeUpdate = useCallback(() => {
     if (isSeeking || !videoRef.current) return;
@@ -1619,84 +1705,111 @@ function MainView() {
               </div>
             </div>
 
-            {/* Mobile Playback Controls: 3-tier bottom layout matching Alexis Gómez reference IMG_4343 */}
+            {/* Mobile Playback Controls & Navigation: 3-tier bottom layout matching Alexis Gómez reference IMG_4343 */}
             <div
               inert={isCreditsOpen || isStillsOpen ? true : undefined}
               aria-hidden={isCreditsOpen || isStillsOpen ? true : undefined}
               className={`flex md:hidden fixed bottom-0 left-0 right-0 z-[70] px-6 pb-8 sm:pb-10 pt-4 pointer-events-none transition-opacity duration-300 ease-out motion-reduce:transition-none ${
-                isControlsVisible && !isCreditsOpen && !isStillsOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                isCreditsOpen || isStillsOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 pointer-events-none'
               }`}
             >
-              <div
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="flex flex-col w-full select-none"
-              >
-                {/* Tier 1: Pause/Play (left), Sound (center), Fullscreen (right) */}
-                <div className="grid grid-cols-3 items-center w-full mb-3">
-                  <div className="text-left">
-                    <button
-                      type="button"
-                      onClick={togglePlay}
-                      aria-label={isPlaying ? 'Pause video' : 'Play video'}
-                      className="font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
-                    >
-                      {isPlaying ? 'Pause' : 'Play'}
-                    </button>
-                  </div>
-
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={toggleSound}
-                      aria-label={isMuted ? 'Turn on sound' : 'Mute sound'}
-                      className={`font-main text-[15.6px] leading-[22px] text-ink transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 ${
-                        isMuted ? 'opacity-40' : 'opacity-90 hover:opacity-50'
-                      }`}
-                    >
-                      Sound
-                    </button>
-                  </div>
-
-                  <div className="text-right">
-                    <button
-                      type="button"
-                      onClick={toggleFullscreen}
-                      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                      className="font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
-                    >
-                      Fullscreen
-                    </button>
-                  </div>
-                </div>
-
-                {/* Tier 2: Full-width Timeline Scrubber */}
+              <div className="flex flex-col w-full select-none pointer-events-none">
+                {/* Auto-Hiding Playback Controls: Tier 1 (Play, Sound, Fullscreen) & Tier 2 (Timeline Scrubber) */}
                 <div
-                  role="slider"
-                  aria-label="Playback timeline"
-                  aria-valuemin={0}
-                  aria-valuemax={Math.round(duration) || 100}
-                  aria-valuenow={Math.round(currentTime)}
-                  aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
-                  tabIndex={0}
-                  onPointerDown={handleTimelinePointerDown}
-                  onKeyDown={handleTimelineKeyDown}
-                  className="w-full relative flex items-center h-6 cursor-pointer select-none mb-3 focus:outline-none"
+                  inert={!isControlsVisible || isCreditsOpen || isStillsOpen ? true : undefined}
+                  aria-hidden={!isControlsVisible || isCreditsOpen || isStillsOpen ? true : undefined}
+                  className={`flex flex-col w-full transition-opacity duration-300 ease-out motion-reduce:transition-none pointer-events-none ${
+                    isControlsVisible && !isCreditsOpen && !isStillsOpen
+                      ? 'opacity-100 pointer-events-auto'
+                      : 'opacity-0 pointer-events-none'
+                  }`}
                 >
-                  <div className="w-full h-[1px] bg-white/40 relative">
-                    <div
-                      className="absolute top-0 left-0 h-[1px] bg-white"
-                      style={{ width: `${progress * 100}%` }}
-                    />
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 w-[1.5px] h-[14px] bg-white pointer-events-none"
-                      style={{ left: `calc(${progress * 100}% - 0.75px)` }}
-                    />
+                  {/* Tier 1: Pause/Play (left), Sound (center), Fullscreen (right) */}
+                  <div className="grid grid-cols-3 items-center w-full mb-3 pointer-events-auto">
+                    {/* Play / Pause Toggle */}
+                    <div className="text-left flex items-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePlay(e);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        aria-label={isPlaying ? 'Pause video' : 'Play video'}
+                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none"
+                      >
+                        {isPlaying ? 'Pause' : 'Play'}
+                      </button>
+                    </div>
+
+                    {/* Sound Toggle */}
+                    <div className="text-center flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSound(e);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        aria-label={isMuted ? 'Turn on sound' : 'Mute sound'}
+                        className={`pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center justify-center select-none ${
+                          isMuted ? 'opacity-40' : 'opacity-90 hover:opacity-50'
+                        }`}
+                      >
+                        Sound
+                      </button>
+                    </div>
+
+                    {/* Fullscreen Toggle */}
+                    <div className="text-right flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFullscreen(e);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center justify-end select-none"
+                      >
+                        Fullscreen
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tier 2: Full-width Timeline Scrubber */}
+                  <div
+                    role="slider"
+                    aria-label="Playback timeline"
+                    aria-valuemin={0}
+                    aria-valuemax={Math.round(duration) || 100}
+                    aria-valuenow={Math.round(currentTime)}
+                    aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+                    tabIndex={0}
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      handleTimelinePointerDown(e);
+                    }}
+                    onKeyDown={handleTimelineKeyDown}
+                    className="w-full relative flex items-center h-6 cursor-pointer select-none mb-3 focus:outline-none pointer-events-auto"
+                  >
+                    <div className="w-full h-[1px] bg-white/40 relative">
+                      <div
+                        className="absolute top-0 left-0 h-[1px] bg-white"
+                        style={{ width: `${progress * 100}%` }}
+                      />
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-[1.5px] h-[14px] bg-white pointer-events-none"
+                        style={{ left: `calc(${progress * 100}% - 0.75px)` }}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Tier 3: Back (left), Previous (exact center), Next (compact navigation pair with ~40% reduced gap) */}
-                <div className="relative flex items-center justify-between w-full h-[22px]">
+                {/* Persistent Navigation: Tier 3 (Back, Previous, Next) - Stays visible & usable on main video screen */}
+                <div className="relative flex items-center justify-between w-full h-[22px] pointer-events-auto">
+                  {/* Back Button */}
                   <div className="text-left flex items-center">
                     <button
                       type="button"
@@ -1717,9 +1830,13 @@ function MainView() {
                     <div className="relative flex items-center">
                       <button
                         type="button"
-                        onClick={handlePrev}
-                        aria-label="Previous project"
-                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePrev();
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        aria-label={prevProject ? `Previous project: ${prevProject.name}` : 'Previous project'}
+                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none"
                       >
                         Previous
                       </button>
@@ -1727,9 +1844,13 @@ function MainView() {
                       <div className="absolute left-full pl-[58px] sm:pl-[64px] whitespace-nowrap">
                         <button
                           type="button"
-                          onClick={handleNext}
-                          aria-label="Next project"
-                          className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleNext();
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          aria-label={nextProject ? `Next project: ${nextProject.name}` : 'Next project'}
+                          className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none"
                         >
                           Next
                         </button>
