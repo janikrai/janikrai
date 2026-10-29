@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo, forwardRef, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useNavigate, useParams, useLocation, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { PROJECTS, CATEGORIES } from './constants';
+import { PROJECTS, CATEGORIES, SELECTED_PROJECT_ORDER, ARCHIVE_PROJECT_ORDER } from './constants';
 import { Project, Category } from './types';
 
 const StrikeButton = forwardRef<HTMLButtonElement, { children: React.ReactNode, onClick?: () => void, className?: string, disabled?: boolean, [key: string]: any }>(
@@ -23,6 +23,13 @@ const StrikeButton = forwardRef<HTMLButtonElement, { children: React.ReactNode, 
 StrikeButton.displayName = 'StrikeButton';
 
 const getPoster = (project: Project) => project.stills?.[0] ?? '';
+
+function formatTime(seconds: number): string {
+  if (isNaN(seconds) || seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
 
 function ArchiveTile({
   project,
@@ -137,6 +144,22 @@ function MainView() {
   const [hoveredProject, setHoveredProject] = useState<Project | null>(null);
   const [activeTeaser, setActiveTeaser] = useState<Project>(PROJECTS[0]);
   const [isCreditsOpen, setIsCreditsOpen] = useState(false);
+  const [isStillsOpen, setIsStillsOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [isControlsVisible, setIsControlsVisible] = useState(true);
+  const [isHoveringControl, setIsHoveringControl] = useState(false);
+  const [isControlsFocused, setIsControlsFocused] = useState(false);
+  const [hoveredPrev, setHoveredPrev] = useState(false);
+  const [focusedPrev, setFocusedPrev] = useState(false);
+  const [hoveredNext, setHoveredNext] = useState(false);
+  const [focusedNext, setFocusedNext] = useState(false);
+
   const [mobileIndex, setMobileIndex] = useState(0);
   const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
   const [mobilePlayingMap, setMobilePlayingMap] = useState<Record<string, boolean>>({});
@@ -158,6 +181,8 @@ function MainView() {
   const playerScrollRef = useRef<HTMLDivElement>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
   const playerOverlayRef = useRef<HTMLDivElement>(null);
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
   const aboutOverlayRef = useRef<HTMLDivElement>(null);
   const creditsOverlayRef = useRef<HTMLDivElement>(null);
   const selectedLinkRef = useRef<HTMLAnchorElement>(null);
@@ -165,6 +190,9 @@ function MainView() {
   const [infoContentLeft, setInfoContentLeft] = useState<number>(0);
 
   const preCreditsVolume = useRef<number>(1);
+  const savedVolumeRef = useRef<number>(1);
+  const wasPlayingRef = useRef<boolean>(false);
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const touchStartY = useRef<number | null>(null);
   const touchEndY = useRef<number | null>(null);
 
@@ -184,17 +212,45 @@ function MainView() {
   const selectedProject = useMemo(() => PROJECTS.find(p => p.id === projectId) || null, [projectId]);
   const isOverlayOpen = Boolean(selectedProject || isAboutOpen);
 
-  const filteredProjects = useMemo(
-    () => PROJECTS.filter(p => p.tags.includes(activeCategory)),
-    [activeCategory]
-  );
+  const filteredProjects = useMemo(() => {
+    const order = activeCategory === 'Selected' ? SELECTED_PROJECT_ORDER : ARCHIVE_PROJECT_ORDER;
+    return order
+      .map(id => PROJECTS.find(p => p.id === id))
+      .filter((p): p is Project => Boolean(p));
+  }, [activeCategory]);
 
   const currentIndex = useMemo(
     () => selectedProject ? filteredProjects.findIndex(p => p.id === selectedProject.id) : -1,
     [selectedProject, filteredProjects]
   );
-  const hasPrev = currentIndex > 0;
-  const hasNext = currentIndex >= 0 && currentIndex < filteredProjects.length - 1;
+  const totalInCollection = filteredProjects.length;
+  const hasMultipleProjects = totalInCollection > 1;
+
+  const prevIndex = useMemo(() => {
+    if (!hasMultipleProjects || currentIndex === -1) return -1;
+    return (currentIndex - 1 + totalInCollection) % totalInCollection;
+  }, [hasMultipleProjects, currentIndex, totalInCollection]);
+
+  const nextIndex = useMemo(() => {
+    if (!hasMultipleProjects || currentIndex === -1) return -1;
+    return (currentIndex + 1) % totalInCollection;
+  }, [hasMultipleProjects, currentIndex, totalInCollection]);
+
+  const prevProject = prevIndex >= 0 ? filteredProjects[prevIndex] : null;
+  const nextProject = nextIndex >= 0 ? filteredProjects[nextIndex] : null;
+  const hasPrev = Boolean(prevProject);
+  const hasNext = Boolean(nextProject);
+
+  const shouldReduceMotion = useReducedMotion();
+
+  // Stop film audio immediately when closing a project, even while its visual closing animation finishes
+  useEffect(() => {
+    if (!selectedProject && videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.muted = true;
+      setIsPlaying(false);
+    }
+  }, [selectedProject]);
 
   // Viewport resize tracking
   useEffect(() => {
@@ -370,72 +426,344 @@ function MainView() {
     setHasSwipedOnce(false);
   }, [activeCategory]);
 
-  // When switching project in full-film player
+  // Fullscreen change tracking
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // When switching project in full-film player: unmuted autoplay with fallback
   useEffect(() => {
     setHasVideoError(false);
     setIsCreditsOpen(false);
+    setIsStillsOpen(false);
     preCreditsVolume.current = 1;
+    setProgress(0);
+    setCurrentTime(0);
+    setIsControlsVisible(true);
 
-    if (selectedProject && videoRef.current) {
-      videoRef.current.volume = 1;
-      videoRef.current.currentTime = 0;
-      videoRef.current.load();
-      videoRef.current.play().catch(() => {});
-      playerScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    const video = videoRef.current;
+    if (!selectedProject || !video) return;
+
+    video.pause();
+    video.currentTime = 0;
+    video.volume = savedVolumeRef.current > 0 ? savedVolumeRef.current : 1;
+    video.muted = false;
+    setIsMuted(false);
+    video.load();
+
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch(() => {
+          // Autoplay with sound blocked; fallback to muted autoplay
+          video.muted = true;
+          setIsMuted(true);
+          video.play()
+            .then(() => {
+              setIsPlaying(true);
+            })
+            .catch(() => {
+              // Blocked completely; show visible Play control gracefully
+              setIsPlaying(false);
+            });
+        });
     }
+
+    return () => {
+      video.pause();
+      video.currentTime = 0;
+    };
   }, [selectedProject?.id]);
 
-  // Shared credits close handler that restores volume saved when credits opened
-  const handleCloseCredits = useCallback(() => {
-    setIsCreditsOpen(false);
-    if (videoRef.current && !isNaN(videoRef.current.volume)) {
-      videoRef.current.volume = preCreditsVolume.current;
+  // Inactivity timer for fading the entire video interface after 2 seconds
+  const clearInactivityTimer = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
     }
-    creditsTriggerRef.current?.focus();
   }, []);
 
-  // Shared credits open handler
-  const handleOpenCredits = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    creditsTriggerRef.current = e.currentTarget;
-    if (videoRef.current) {
-      preCreditsVolume.current = videoRef.current.volume;
-      videoRef.current.volume = Math.max(0, videoRef.current.volume * 0.5);
+  const startInactivityTimer = useCallback(() => {
+    clearInactivityTimer();
+    if (isPlaying && !isSeeking && !isControlsFocused && !isCreditsOpen && !isStillsOpen) {
+      inactivityTimerRef.current = setTimeout(() => {
+        setIsControlsVisible(false);
+      }, 2000);
     }
+  }, [isPlaying, isSeeking, isControlsFocused, isCreditsOpen, isStillsOpen, clearInactivityTimer]);
+
+  useEffect(() => {
+    if (!isPlaying || isSeeking || isControlsFocused || isCreditsOpen || isStillsOpen) {
+      setIsControlsVisible(true);
+      clearInactivityTimer();
+    } else {
+      startInactivityTimer();
+    }
+    return () => {
+      clearInactivityTimer();
+    };
+  }, [isPlaying, isSeeking, isControlsFocused, isCreditsOpen, isStillsOpen, clearInactivityTimer, startInactivityTimer]);
+
+  // Window pointermove listener when player is open: any pointer move reveals controls and resets the 3s inactivity countdown
+  useEffect(() => {
+    if (!selectedProject) return;
+
+    const handlePointerMove = () => {
+      setIsControlsVisible(true);
+      startInactivityTimer();
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+    };
+  }, [selectedProject, startInactivityTimer]);
+
+  const togglePlay = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setIsPlaying(false));
+    } else {
+      video.pause();
+      setIsPlaying(false);
+    }
+  }, []);
+
+  const toggleSound = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isMuted || video.muted || video.volume === 0) {
+      video.muted = false;
+      video.volume = savedVolumeRef.current > 0 ? savedVolumeRef.current : 1;
+      setIsMuted(false);
+    } else {
+      savedVolumeRef.current = video.volume > 0 ? video.volume : 1;
+      video.muted = true;
+      setIsMuted(true);
+    }
+  }, [isMuted]);
+
+  const toggleFullscreen = useCallback(() => {
+    const el = playerContainerRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if ((el as any).webkitRequestFullscreen) {
+        (el as any).webkitRequestFullscreen();
+      } else if (videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
+        (videoRef.current as any).webkitEnterFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+    }
+  }, []);
+
+  const handleTimeUpdate = useCallback(() => {
+    if (isSeeking || !videoRef.current) return;
+    const cur = videoRef.current.currentTime;
+    const dur = videoRef.current.duration || 0;
+    setCurrentTime(cur);
+    if (dur > 0) {
+      setProgress(cur / dur);
+      setDuration(dur);
+    }
+  }, [isSeeking]);
+
+  const handleLoadedMetadata = useCallback(() => {
+    if (!videoRef.current) return;
+    setDuration(videoRef.current.duration || 0);
+  }, []);
+
+  const activeTimelineElRef = useRef<HTMLDivElement | null>(null);
+
+  const seekToPosition = useCallback((clientX: number, targetEl?: HTMLElement | null) => {
+    const el = targetEl || activeTimelineElRef.current || timelineRef.current;
+    if (!el || !videoRef.current || !duration) return;
+    const rect = el.getBoundingClientRect();
+    const clickX = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const newProgress = rect.width > 0 ? clickX / rect.width : 0;
+    setProgress(newProgress);
+    const newTime = newProgress * duration;
+    setCurrentTime(newTime);
+    videoRef.current.currentTime = newTime;
+  }, [duration]);
+
+  const handleTimelinePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    setIsSeeking(true);
+    const target = e.currentTarget;
+    activeTimelineElRef.current = target;
+    seekToPosition(e.clientX, target);
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      seekToPosition(moveEvent.clientX, target);
+    };
+
+    const onPointerUp = () => {
+      setIsSeeking(false);
+      activeTimelineElRef.current = null;
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  }, [seekToPosition]);
+
+  const handleTimelineKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!videoRef.current || !duration) return;
+    let newTime = currentTime;
+    if (e.key === 'ArrowLeft') {
+      newTime = Math.max(0, currentTime - 5);
+    } else if (e.key === 'ArrowRight') {
+      newTime = Math.min(duration, currentTime + 5);
+    } else if (e.key === 'Home') {
+      newTime = 0;
+    } else if (e.key === 'End') {
+      newTime = duration;
+    } else {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+    setProgress(newTime / duration);
+  }, [currentTime, duration]);
+
+  const handleOpenProjectInfo = useCallback((e?: React.MouseEvent<HTMLElement>) => {
+    creditsTriggerRef.current = e?.currentTarget || null;
     setIsCreditsOpen(true);
   }, []);
 
-  const handleClosePlayer = useCallback(() => {
-    handleCloseCredits();
-    navigate(cameFrom || (activeCategory === 'Archive' ? '/archive' : '/'));
-  }, [handleCloseCredits, navigate, cameFrom, activeCategory]);
+  const handleCloseProjectInfo = useCallback(() => {
+    setIsCreditsOpen(false);
+    creditsTriggerRef.current?.focus();
+  }, []);
+
+  const handleOpenStills = useCallback(() => {
+    setIsStillsOpen(true);
+  }, []);
+
+  const handleCloseStills = useCallback(() => {
+    setIsStillsOpen(false);
+  }, []);
+
+  const handleGoHome = useCallback(() => {
+    clearInactivityTimer();
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.muted = true;
+      videoRef.current.currentTime = 0;
+    }
+    setIsCreditsOpen(false);
+    setIsStillsOpen(false);
+    setIsPlaying(false);
+    if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+    }
+    navigate('/');
+  }, [clearInactivityTimer, navigate]);
+
+  const handleClosePlayer = useCallback((e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    clearInactivityTimer();
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.muted = true;
+      videoRef.current.currentTime = 0;
+    }
+    setIsCreditsOpen(false);
+    setIsStillsOpen(false);
+    setIsPlaying(false);
+    if (document.fullscreenElement || (document as any).webkitFullscreenElement) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      }
+    }
+    const targetRoute = cameFrom === '/archive' ? '/archive' : '/';
+    navigate(targetRoute);
+  }, [clearInactivityTimer, cameFrom, navigate]);
 
   const handlePrev = useCallback(() => {
-    handleCloseCredits();
-    if (!selectedProject) return;
-    const prevProject = filteredProjects[currentIndex - 1];
-    if (prevProject) {
-      navigate(`/work/${prevProject.id}`, { state: { from: cameFrom || (activeCategory === 'Archive' ? '/archive' : '/') } });
+    clearInactivityTimer();
+    handleCloseProjectInfo();
+    setIsStillsOpen(false);
+    if (!prevProject) return;
+    if (videoRef.current) {
+      videoRef.current.pause();
     }
-  }, [handleCloseCredits, selectedProject, filteredProjects, currentIndex, navigate, cameFrom, activeCategory]);
+    navigate(`/work/${prevProject.id}`, { state: { from: cameFrom || (activeCategory === 'Archive' ? '/archive' : '/') } });
+  }, [clearInactivityTimer, handleCloseProjectInfo, prevProject, navigate, cameFrom, activeCategory]);
 
   const handleNext = useCallback(() => {
-    handleCloseCredits();
-    if (!selectedProject) return;
-    const nextProject = filteredProjects[currentIndex + 1];
-    if (nextProject) {
-      navigate(`/work/${nextProject.id}`, { state: { from: cameFrom || (activeCategory === 'Archive' ? '/archive' : '/') } });
+    clearInactivityTimer();
+    handleCloseProjectInfo();
+    setIsStillsOpen(false);
+    if (!nextProject) return;
+    if (videoRef.current) {
+      videoRef.current.pause();
     }
-  }, [handleCloseCredits, selectedProject, filteredProjects, currentIndex, navigate, cameFrom, activeCategory]);
+    navigate(`/work/${nextProject.id}`, { state: { from: cameFrom || (activeCategory === 'Archive' ? '/archive' : '/') } });
+  }, [clearInactivityTimer, handleCloseProjectInfo, nextProject, navigate, cameFrom, activeCategory]);
 
-  // Keyboard navigation & Escape handling with Credits precedence
+  const handleSurfaceClick = useCallback(() => {
+    if (isCreditsOpen || isStillsOpen) return;
+    if (!isControlsVisible) {
+      setIsControlsVisible(true);
+      startInactivityTimer();
+      return;
+    }
+    togglePlay();
+  }, [isCreditsOpen, isStillsOpen, isControlsVisible, startInactivityTimer, togglePlay]);
+
+  // Keyboard navigation, Space to play/pause, and Escape hierarchy
   useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (
+        activeEl instanceof HTMLInputElement ||
+        activeEl instanceof HTMLTextAreaElement
+      );
+      if (isInput) return;
 
       if (e.key === 'Escape') {
         if (isCreditsOpen) {
           e.preventDefault();
-          handleCloseCredits();
+          handleCloseProjectInfo();
+          return;
+        }
+        if (isStillsOpen) {
+          e.preventDefault();
+          handleCloseStills();
           return;
         }
         if (selectedProject) {
@@ -450,21 +778,33 @@ function MainView() {
         }
       }
 
-      if (!isCreditsOpen && selectedProject) {
-        if (e.key === 'ArrowLeft' && hasPrev) {
+      // Space key for play/pause when in player and not on interactive element
+      if (selectedProject && (e.key === ' ' || e.code === 'Space')) {
+        const isInteractive = activeEl && (
+          activeEl.tagName === 'BUTTON' ||
+          activeEl.tagName === 'A' ||
+          activeEl.getAttribute('role') === 'slider'
+        );
+        if (!isInteractive && !isCreditsOpen && !isStillsOpen) {
           e.preventDefault();
-          handlePrev();
-        }
-        if (e.key === 'ArrowRight' && hasNext) {
-          e.preventDefault();
-          handleNext();
+          togglePlay();
         }
       }
     };
 
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [isCreditsOpen, selectedProject, isAboutOpen, navigate, handlePrev, handleNext, handleCloseCredits, handleClosePlayer, hasPrev, hasNext]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isCreditsOpen,
+    isStillsOpen,
+    selectedProject,
+    isAboutOpen,
+    navigate,
+    handleCloseProjectInfo,
+    handleCloseStills,
+    handleClosePlayer,
+    togglePlay,
+  ]);
 
   // Focus trap utility
   const handleTrapFocus = (e: React.KeyboardEvent<HTMLElement>, containerRef: React.RefObject<HTMLElement | null>) => {
@@ -680,10 +1020,16 @@ function MainView() {
           className="group pointer-events-auto relative inline-flex items-center justify-center text-inherit no-underline cursor-pointer select-none py-10 px-8 sm:px-14 md:px-20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/60"
         >
           <div className="flex items-center justify-center gap-20 sm:gap-28 md:gap-36 lg:gap-48 pointer-events-none">
-            <span className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:translate-x-6 sm:group-hover:translate-x-10 group-focus-visible:translate-x-6 sm:group-focus-visible:translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform">
+            <span
+              style={{ filter: 'blur(0.5px)' }}
+              className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:translate-x-6 sm:group-hover:translate-x-10 group-focus-visible:translate-x-6 sm:group-focus-visible:translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform"
+            >
               Janik
             </span>
-            <span className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:-translate-x-6 sm:group-hover:-translate-x-10 group-focus-visible:-translate-x-6 sm:group-focus-visible:-translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform">
+            <span
+              style={{ filter: 'blur(0.5px)' }}
+              className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:-translate-x-6 sm:group-hover:-translate-x-10 group-focus-visible:-translate-x-6 sm:group-focus-visible:-translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform"
+            >
               Rai
             </span>
           </div>
@@ -745,7 +1091,7 @@ function MainView() {
           {activeCategory === 'Archive' ? (
             <div 
               className={`fixed inset-0 overflow-y-auto z-10 p-[8.5px] pt-16 pb-12 transition-opacity duration-300 ${
-                isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                isAboutOpen ? 'pointer-events-none' : 'opacity-100'
               }`}
             >
               <div className='grid grid-cols-2 gap-2'>
@@ -763,7 +1109,7 @@ function MainView() {
           ) : (
             <div 
               className={`fixed inset-0 overflow-hidden z-10 transition-opacity duration-300 ${
-                isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                isAboutOpen ? 'pointer-events-none' : 'opacity-100'
               }`}
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
@@ -803,7 +1149,9 @@ function MainView() {
                     <Link
                       to={`/work/${project.id}`}
                       state={{ from: '/' }}
-                      className='absolute inset-0 flex flex-col items-center justify-end px-8 pb-16 sm:pb-20 text-inherit no-underline focus:outline-none focus:ring-1 focus:ring-ink/40'
+                      className={`absolute inset-0 flex flex-col items-center justify-end px-8 pb-16 sm:pb-20 text-inherit no-underline focus:outline-none focus:ring-1 focus:ring-ink/40 transition-opacity duration-300 ${
+                        isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                      }`}
                       aria-label={`View project: ${project.name}`}
                     >
                       <p className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold opacity-60 mb-1'>{project.client}</p>
@@ -814,7 +1162,7 @@ function MainView() {
                   </div>
                 );
               })}
-              {!hasSwipedOnce && (
+              {!hasSwipedOnce && !isAboutOpen && (
                 <div className='absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none'>
                   <motion.div
                     animate={{ y: [0, 6, 0] }}
@@ -841,6 +1189,7 @@ function MainView() {
               muted
               loop
               playsInline
+              poster={getPoster(activeTeaser)}
               style={{
                 position: 'absolute',
                 inset: 0,
@@ -876,275 +1225,809 @@ function MainView() {
         </AnimatePresence>
       </div>
 
-      {/* Project Player Overlay */}
+      {/* Project Video Player Overlay (Full-Viewport Presentation & Reference Controls) */}
       <AnimatePresence>
         {selectedProject && (
           <motion.div
             ref={(el) => {
-              playerScrollRef.current = el;
               playerOverlayRef.current = el;
+              playerContainerRef.current = el;
             }}
             role="dialog"
             aria-modal="true"
-            aria-label={`Project: ${selectedProject.name}`}
+            aria-label={`Project film: ${selectedProject.name}`}
             tabIndex={-1}
             onKeyDown={(e) => handleTrapFocus(e, playerOverlayRef)}
+            onPointerMove={startInactivityTimer}
+            onClick={handleSurfaceClick}
             style={{ outline: 'none' }}
-            initial={{ opacity: 0, clipPath: 'inset(2% 2% 2% 2% round 4px)' }}
-            animate={{ opacity: 1, clipPath: 'inset(0% 0% 0% 0% round 0px)' }}
-            exit={{ opacity: 1, clipPath: 'inset(100% 0% 0% 0% round 0px)' }}
-            transition={{ duration: 0.65, ease: [0.76, 0, 0.24, 1] }}
-            className="fixed inset-0 z-[60] flex flex-col bg-bg overflow-y-auto"
+            initial={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(0% 50% 0% 50%)' }}
+            animate={shouldReduceMotion ? { opacity: 1 } : { clipPath: 'inset(0% 0% 0% 0%)' }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(0% 50% 0% 50%)' }}
+            transition={
+              shouldReduceMotion
+                ? { duration: 0.2, ease: 'easeOut' }
+                : { duration: 0.65, ease: [0.5, 0.25, 0, 1] }
+            }
+            onAnimationStart={() => {
+              if (!selectedProject && videoRef.current) {
+                videoRef.current.pause();
+                videoRef.current.muted = true;
+                setIsPlaying(false);
+              }
+            }}
+            className={`fixed inset-0 z-[60] flex items-center justify-center bg-black overflow-hidden select-none ${
+              !isControlsVisible && isPlaying ? 'cursor-none' : 'cursor-default'
+            }`}
           >
-            {/* Underlying player contents become inert when credits dialog is open */}
-            <div className="contents" inert={isCreditsOpen ? true : undefined}>
-              {/* Mobile Header */}
-              <div className='flex md:hidden items-center justify-between p-[8.5px] sticky top-0 z-[80] bg-transparent'>
-                {selectedProject.credits && selectedProject.credits.trim() !== '' && (
-                  <StrikeButton
-                    onClick={handleOpenCredits}
-                    className='text-[15.6px] leading-[22px] font-main opacity-75'
+            {/* Full-Viewport Video Player (Preserves aspect ratio with letterboxing, never cropped) */}
+            <div className="absolute inset-0 flex items-center justify-center w-full h-full pointer-events-none">
+              <video
+                ref={videoRef}
+                key={selectedProject.id}
+                src={selectedProject.videoUrl}
+                poster={getPoster(selectedProject)}
+                playsInline
+                preload="auto"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onEnded={() => {
+                  setIsPlaying(false);
+                  setIsControlsVisible(true);
+                }}
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+                onError={() => setHasVideoError(true)}
+                className={`w-full h-full ${isFullscreen ? 'object-contain' : 'object-cover'} pointer-events-none select-none bg-black`}
+              />
+            </div>
+
+            {/* Blocked Autoplay / Video Error Fallback */}
+            {hasVideoError && (
+              <div
+                className="relative z-50 flex flex-col items-center justify-center p-8 md:p-10 border border-white/10 bg-black/85 rounded-sm text-center max-w-lg mx-auto space-y-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <p className="text-[15.6px] leading-[22px] font-main text-ink/80">Unable to load film</p>
+                <div className="flex items-center gap-6 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHasVideoError(false);
+                      if (videoRef.current) {
+                        videoRef.current.load();
+                        videoRef.current.play().catch(() => {});
+                      }
+                    }}
+                    className="text-[15.6px] leading-[22px] font-main px-4 py-1.5 border border-white/20 hover:border-white/60 transition-colors cursor-pointer"
                   >
-                    Credits
-                  </StrikeButton>
-                )}
-                {(!selectedProject.credits || selectedProject.credits.trim() === '') && <div />}
-                <p className='text-[15.6px] leading-[22px] font-heading font-semibold uppercase tracking-[0.08em] absolute left-1/2 -translate-x-1/2 text-ink'>{selectedProject.name}</p>
-                <StrikeButton
-                  onClick={handleClosePlayer}
-                  className='text-[15.6px] leading-[22px] font-main opacity-75'
+                    Retry
+                  </button>
+                  <a
+                    href={selectedProject.videoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[15.6px] leading-[22px] font-main opacity-70 hover:opacity-100 underline underline-offset-4 transition-opacity"
+                  >
+                    Open video directly
+                  </a>
+                </div>
+              </div>
+            )}
+
+            {/* Desktop Header: Navigation on left, Centred Title, Fixed Info/Stills/Close on right */}
+            <header
+              onClick={(e) => e.stopPropagation()}
+              className={`hidden md:flex fixed top-0 left-0 right-0 z-[70] p-5 md:p-6 items-baseline justify-between select-none bg-gradient-to-b from-black/50 via-black/15 to-transparent transition-opacity duration-300 ease-out ${
+                isControlsVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              {/* Corner Navigation: Info, Home, Archive at 50% opacity */}
+              <nav aria-label="Main Navigation" className="flex items-baseline gap-10 sm:gap-14 md:gap-16">
+                <Link
+                  to="/info"
+                  onClick={() => {
+                    if (videoRef.current) videoRef.current.pause();
+                  }}
+                  className="font-main text-[15.6px] leading-[22px] opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity no-underline text-inherit focus:outline-none focus-visible:underline underline-offset-4"
                 >
-                  Close
-                </StrikeButton>
+                  Info
+                </Link>
+                <button
+                  type="button"
+                  onClick={handleGoHome}
+                  aria-label="Return to homepage"
+                  className="font-main text-[15.6px] leading-[22px] opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity text-inherit cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                >
+                  Home
+                </button>
+                <Link
+                  to="/archive"
+                  onClick={() => {
+                    if (videoRef.current) videoRef.current.pause();
+                  }}
+                  className="font-main text-[15.6px] leading-[22px] opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity no-underline text-inherit focus:outline-none focus-visible:underline underline-offset-4"
+                >
+                  Archive
+                </Link>
+              </nav>
+
+              {/* Viewport-Centred Project Title (Clickable, opening Project Info/Credits) */}
+              <div className="absolute left-1/2 -translate-x-1/2 top-5 md:top-6 pointer-events-auto flex items-center justify-center max-w-[42vw] text-center">
+                <button
+                  type="button"
+                  onClick={handleOpenProjectInfo}
+                  aria-label={`View info and credits for ${selectedProject.name}`}
+                  className="font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 focus-visible:opacity-100 transition-opacity cursor-pointer truncate focus:outline-none focus-visible:underline underline-offset-4"
+                >
+                  {selectedProject.name}, {selectedProject.client}
+                </button>
               </div>
 
-              {/* Desktop Header */}
-              <div className='hidden md:flex sticky top-0 z-[80] items-center justify-between p-5 md:p-6 bg-transparent'>
-                <div className='flex items-center gap-6'>
-                  <StrikeButton
+              {/* Project Details: Fixed Positions (Position 1: Info, Position 2: Stills) */}
+              <div className="flex items-baseline gap-6 sm:gap-8 md:gap-10 text-ink">
+                {selectedProject.year && (
+                  <span className="font-main text-[15.6px] leading-[22px] text-ink opacity-75 hidden lg:inline">
+                    {selectedProject.year}
+                  </span>
+                )}
+
+                {/* Position 1: Info Position (Video playing -> Info) */}
+                <div className="w-[48px] text-right inline-flex justify-end">
+                  <button
                     ref={playerCloseBtnRef}
-                    onClick={handleClosePlayer}
-                    className='text-[15.6px] leading-[22px] font-main opacity-75 hover:opacity-100 transition-opacity'
+                    type="button"
+                    onClick={handleOpenProjectInfo}
+                    aria-label="View project info and credits"
+                    className="font-main text-[15.6px] leading-[22px] text-ink hover:opacity-50 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
                   >
-                    Close
-                  </StrikeButton>
-                  {selectedProject.credits && selectedProject.credits.trim() !== '' && (
-                    <StrikeButton
-                      onClick={handleOpenCredits}
-                      className='text-[15.6px] leading-[22px] font-main opacity-75 hover:opacity-100 transition-opacity'
-                    >
-                      Credits
-                    </StrikeButton>
-                  )}
+                    Info
+                  </button>
                 </div>
-                <div className='absolute left-1/2 -translate-x-1/2 text-center pointer-events-none'>
-                  <p className='text-[15.6px] leading-[22px] font-heading font-semibold uppercase tracking-[0.08em] text-ink'>{selectedProject.name}</p>
-                </div>
-                <div />
-              </div>
 
-              {/* Player Body */}
-              <div className="flex-1 flex flex-col items-center pt-2 pb-10 px-6 md:px-20 space-y-10">
-                <div className='relative w-full max-w-6xl'>
-                  {hasPrev && (
-                    <StrikeButton
-                      onClick={handlePrev}
-                      className='hidden md:flex absolute left-[-3.5rem] top-1/2 -translate-y-1/2 text-[15.6px] leading-[22px] font-main opacity-55 hover:opacity-100 transition-opacity'
+                {/* Position 2: Stills Position (Video playing -> Stills) */}
+                {selectedProject.stills && selectedProject.stills.length > 0 && (
+                  <div className="w-[50px] text-right inline-flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleOpenStills}
+                      aria-label="View project stills"
+                      className="font-main text-[15.6px] leading-[22px] text-ink hover:opacity-50 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
                     >
-                      Prev
-                    </StrikeButton>
-                  )}
-
-                  <div style={{ width: '100%', maxWidth: '1152px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {hasVideoError ? (
-                      <div className="flex flex-col items-center justify-center p-8 md:p-12 border border-white/10 bg-black/60 rounded-sm text-center max-w-lg mx-auto my-12 space-y-4">
-                        <p className="text-[13.6px] leading-[19px] font-main opacity-80">Unable to load film</p>
-                        <div className="flex items-center gap-6 pt-2">
-                          <button
-                            onClick={() => {
-                              setHasVideoError(false);
-                              if (videoRef.current) {
-                                videoRef.current.load();
-                                videoRef.current.play().catch(() => {});
-                              }
-                            }}
-                            className="text-[13.6px] leading-[19px] font-main px-4 py-1.5 border border-white/20 hover:border-white/60 transition-colors"
-                          >
-                            Retry
-                          </button>
-                          <a
-                            href={selectedProject.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[13.6px] leading-[19px] font-main opacity-70 hover:opacity-100 underline underline-offset-4 transition-opacity"
-                          >
-                            Open video directly
-                          </a>
-                        </div>
-                      </div>
-                    ) : (
-                      <video
-                        ref={videoRef}
-                        key={selectedProject.id}
-                        src={selectedProject.videoUrl}
-                        poster={getPoster(selectedProject)}
-                        controls
-                        autoPlay
-                        playsInline
-                        onError={() => setHasVideoError(true)}
-                        style={{
-                          width: '100%',
-                          maxHeight: '80vh',
-                          objectFit: 'contain',
-                          background: 'black'
-                        }}
-                      />
-                    )}
+                      Stills
+                    </button>
                   </div>
+                )}
+              </div>
+            </header>
 
-                  {selectedProject.laurelUrls && selectedProject.laurelUrls.length > 0 && (
-                    <div className='flex items-center justify-center gap-6 pt-6 w-full'>
-                      {selectedProject.laurelUrls.map((url, i) => (
-                        <img
-                          key={i}
-                          src={url}
-                          alt=''
-                          aria-hidden='true'
-                          className='h-16 md:h-24 w-auto object-contain opacity-60'
-                          style={{ filter: 'brightness(0) invert(0.93)' }}
-                        />
-                      ))}
-                    </div>
-                  )}
+            {/* Mobile Header: 2-line title/client on left (clickable), Fixed Info & Stills on right */}
+            <header
+              onClick={(e) => e.stopPropagation()}
+              inert={isCreditsOpen || isStillsOpen ? true : undefined}
+              aria-hidden={isCreditsOpen || isStillsOpen ? true : undefined}
+              className={`flex md:hidden fixed top-0 left-0 right-0 z-[70] p-6 pt-12 items-start justify-between select-none bg-gradient-to-b from-black/60 via-black/20 to-transparent transition-opacity duration-300 ease-out ${
+                isControlsVisible && !isCreditsOpen && !isStillsOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={handleOpenProjectInfo}
+                aria-label={`View info and credits for ${selectedProject.name}`}
+                className="flex flex-col text-left max-w-[62%] cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+              >
+                <span className="font-main text-[15.6px] leading-[20px] text-ink truncate">
+                  {selectedProject.name},
+                </span>
+                <span className="font-main text-[15.6px] leading-[20px] text-ink truncate">
+                  {selectedProject.client}
+                </span>
+              </button>
 
-                  <div className='flex md:hidden items-center justify-between w-full px-6 pt-4'>
-                    {hasPrev && (
-                      <StrikeButton
+              <div className="flex items-baseline gap-6 text-ink">
+                {/* Position 1: Info */}
+                <div className="w-[44px] text-right inline-flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleOpenProjectInfo}
+                    aria-label="View project info"
+                    className="font-main text-[15.6px] leading-[20px] text-ink hover:opacity-50 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
+                  >
+                    Info
+                  </button>
+                </div>
+
+                {/* Position 2: Stills */}
+                {selectedProject.stills && selectedProject.stills.length > 0 && (
+                  <div className="w-[46px] text-right inline-flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleOpenStills}
+                      aria-label="View project stills"
+                      className="font-main text-[15.6px] leading-[20px] text-ink hover:opacity-50 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
+                    >
+                      Stills
+                    </button>
+                  </div>
+                )}
+              </div>
+            </header>
+
+            {/* Desktop Central Playback Controls: Shared Grid with Explicit Control Groups & Flexible Timeline */}
+            <div
+              className={`hidden md:flex fixed top-1/2 left-0 right-0 -translate-y-1/2 z-50 pointer-events-none transition-opacity duration-300 ease-out motion-reduce:transition-none ${
+                isControlsVisible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-5 md:px-6 items-center grid grid-cols-[1fr_auto_1fr] pointer-events-none"
+              >
+                {/* Left Control Group: Compact Navigation Pair (Previous + Next), Play */}
+                <div className="flex items-center justify-between w-full max-w-[500px] lg:max-w-[560px] xl:max-w-[620px] justify-self-start pl-[68px] sm:pl-[78px] md:pl-[88px] pr-8 lg:pr-14 xl:pr-16">
+                  {/* Compact Navigation Pair: Previous & Next with ~30% further reduced gap */}
+                  <div className="flex items-center gap-[50px] lg:gap-[60px] xl:gap-[68px]">
+                    {/* Previous Film */}
+                    <div className="pointer-events-auto relative inline-flex flex-col items-center">
+                      <button
+                        type="button"
                         onClick={handlePrev}
-                        className='text-[15.6px] leading-[22px] font-main opacity-75'
+                        onMouseEnter={() => setHoveredPrev(true)}
+                        onMouseLeave={() => setHoveredPrev(false)}
+                        onFocus={() => {
+                          setFocusedPrev(true);
+                          setIsControlsFocused(true);
+                        }}
+                        onBlur={() => {
+                          setFocusedPrev(false);
+                          setIsControlsFocused(false);
+                        }}
+                        aria-label={prevProject ? `Previous project: ${prevProject.name}` : 'Previous project'}
+                        className={`font-main text-[15.6px] leading-[22px] transition-opacity duration-200 focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer select-none ${
+                          hoveredPrev || focusedPrev
+                            ? 'opacity-40 text-ink'
+                            : 'opacity-85 hover:opacity-40 text-ink'
+                        }`}
                       >
-                        Prev
-                      </StrikeButton>
-                    )}
-                    {!hasPrev && <div />}
-                    {hasNext && (
-                      <StrikeButton
+                        Previous
+                      </button>
+                      {prevProject && (
+                        <div
+                          className={`absolute top-full left-1/2 -translate-x-1/2 pt-1 pointer-events-none whitespace-nowrap transition-opacity duration-200 ${
+                            hoveredPrev || focusedPrev ? 'opacity-100' : 'opacity-0'
+                          }`}
+                        >
+                          <span className="font-main text-[12px] leading-[16px] text-ink/80">
+                            {prevProject.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Next Film */}
+                    <div className="pointer-events-auto relative inline-flex flex-col items-center">
+                      <button
+                        type="button"
                         onClick={handleNext}
-                        className='text-[15.6px] leading-[22px] font-main opacity-75'
+                        onMouseEnter={() => setHoveredNext(true)}
+                        onMouseLeave={() => setHoveredNext(false)}
+                        onFocus={() => {
+                          setFocusedNext(true);
+                          setIsControlsFocused(true);
+                        }}
+                        onBlur={() => {
+                          setFocusedNext(false);
+                          setIsControlsFocused(false);
+                        }}
+                        aria-label={nextProject ? `Next project: ${nextProject.name}` : 'Next project'}
+                        className={`font-main text-[15.6px] leading-[22px] transition-opacity duration-200 focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer select-none ${
+                          hoveredNext || focusedNext
+                            ? 'opacity-40 text-ink'
+                            : 'opacity-85 hover:opacity-40 text-ink'
+                        }`}
                       >
                         Next
-                      </StrikeButton>
-                    )}
-                    {!hasNext && <div />}
-                  </div>
-
-                  {hasNext && (
-                    <StrikeButton
-                      onClick={handleNext}
-                      className='hidden md:flex absolute right-[-3.5rem] top-1/2 -translate-y-1/2 text-[15.6px] leading-[22px] font-main opacity-55 hover:opacity-100 transition-opacity'
-                    >
-                      Next
-                    </StrikeButton>
-                  )}
-                </div>
-
-                {selectedProject.stills && (
-                  <div className="w-full max-w-6xl space-y-10 pb-20">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {selectedProject.stills.map((still, idx) => (
-                        <motion.img
-                          key={idx}
-                          loading='lazy'
-                          src={still}
-                          width='800'
-                          height='450'
-                          alt={`${selectedProject.name} for ${selectedProject.client} — production still ${idx + 1}`}
-                          className="w-full aspect-video object-cover bg-white/5"
-                          referrerPolicy="no-referrer"
-                          initial={{ opacity: 0, y: 20 }}
-                          whileInView={{ opacity: 1, y: 0 }}
-                          viewport={{ once: true }}
-                        />
-                      ))}
+                      </button>
+                      {nextProject && (
+                        <div
+                          className={`absolute top-full left-1/2 -translate-x-1/2 pt-1 pointer-events-none whitespace-nowrap transition-opacity duration-200 ${
+                            hoveredNext || focusedNext ? 'opacity-100' : 'opacity-0'
+                          }`}
+                        >
+                          <span className="font-main text-[12px] leading-[16px] text-ink/80">
+                            {nextProject.name}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+
+                  {/* Play / Pause Toggle */}
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    onFocus={() => setIsControlsFocused(true)}
+                    onBlur={() => setIsControlsFocused(false)}
+                    aria-label={isPlaying ? 'Pause video' : 'Play video'}
+                    className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-85 hover:opacity-40 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer select-none"
+                  >
+                    {isPlaying ? 'Pause' : 'Play'}
+                  </button>
+                </div>
+
+                {/* Center Control Group: Flexible Timeline Scrubber */}
+                <div className="pointer-events-auto w-[22vw] min-w-[200px] max-w-[340px] flex items-center justify-center">
+                  <div
+                    ref={timelineRef}
+                    role="slider"
+                    aria-label="Playback timeline"
+                    aria-valuemin={0}
+                    aria-valuemax={Math.round(duration) || 100}
+                    aria-valuenow={Math.round(currentTime)}
+                    aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+                    tabIndex={0}
+                    onPointerDown={handleTimelinePointerDown}
+                    onKeyDown={handleTimelineKeyDown}
+                    onFocus={() => setIsControlsFocused(true)}
+                    onBlur={() => setIsControlsFocused(false)}
+                    className="w-full relative flex items-center h-8 cursor-pointer select-none group focus:outline-none focus-visible:ring-1 focus-visible:ring-white/60"
+                  >
+                    {/* Horizontal Track Line */}
+                    <div className="w-full h-[1px] bg-white/35 relative group-hover:bg-white/50 transition-colors">
+                      {/* Elapsed Progress Line */}
+                      <div
+                        className="absolute top-0 left-0 h-[1px] bg-white"
+                        style={{ width: `${progress * 100}%` }}
+                      />
+                      {/* Vertical Tick Playhead */}
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-[1.5px] h-[14px] bg-white pointer-events-none transition-transform duration-75"
+                        style={{ left: `calc(${progress * 100}% - 0.75px)` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Control Group: Sound, Fullscreen */}
+                <div className="flex items-center justify-between w-full max-w-[320px] lg:max-w-[380px] xl:max-w-[420px] justify-self-end pl-8 lg:pl-14 xl:pl-16 pr-[20px] sm:pr-[28px] md:pr-[36px]">
+                  {/* Sound Toggle */}
+                  <button
+                    type="button"
+                    onClick={toggleSound}
+                    onFocus={() => setIsControlsFocused(true)}
+                    onBlur={() => setIsControlsFocused(false)}
+                    aria-label={isMuted ? 'Turn on sound' : 'Mute sound'}
+                    className={`pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer select-none ${
+                      isMuted ? 'opacity-40 hover:opacity-80' : 'opacity-85 hover:opacity-40'
+                    }`}
+                  >
+                    Sound
+                  </button>
+
+                  {/* Fullscreen Toggle */}
+                  <button
+                    type="button"
+                    onClick={toggleFullscreen}
+                    onFocus={() => setIsControlsFocused(true)}
+                    onBlur={() => setIsControlsFocused(false)}
+                    aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                    className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-85 hover:opacity-40 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer select-none whitespace-nowrap"
+                  >
+                    Fullscreen
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Credits Overlay */}
+            {/* Mobile Playback Controls: 3-tier bottom layout matching Alexis Gómez reference IMG_4343 */}
+            <div
+              inert={isCreditsOpen || isStillsOpen ? true : undefined}
+              aria-hidden={isCreditsOpen || isStillsOpen ? true : undefined}
+              className={`flex md:hidden fixed bottom-0 left-0 right-0 z-[70] px-6 pb-8 sm:pb-10 pt-4 pointer-events-none transition-opacity duration-300 ease-out motion-reduce:transition-none ${
+                isControlsVisible && !isCreditsOpen && !isStillsOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+              }`}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex flex-col w-full select-none"
+              >
+                {/* Tier 1: Pause/Play (left), Sound (center), Fullscreen (right) */}
+                <div className="grid grid-cols-3 items-center w-full mb-3">
+                  <div className="text-left">
+                    <button
+                      type="button"
+                      onClick={togglePlay}
+                      aria-label={isPlaying ? 'Pause video' : 'Play video'}
+                      className="font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                    >
+                      {isPlaying ? 'Pause' : 'Play'}
+                    </button>
+                  </div>
+
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={toggleSound}
+                      aria-label={isMuted ? 'Turn on sound' : 'Mute sound'}
+                      className={`font-main text-[15.6px] leading-[22px] text-ink transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 ${
+                        isMuted ? 'opacity-40' : 'opacity-90 hover:opacity-50'
+                      }`}
+                    >
+                      Sound
+                    </button>
+                  </div>
+
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={toggleFullscreen}
+                      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                      className="font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                    >
+                      Fullscreen
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tier 2: Full-width Timeline Scrubber */}
+                <div
+                  role="slider"
+                  aria-label="Playback timeline"
+                  aria-valuemin={0}
+                  aria-valuemax={Math.round(duration) || 100}
+                  aria-valuenow={Math.round(currentTime)}
+                  aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+                  tabIndex={0}
+                  onPointerDown={handleTimelinePointerDown}
+                  onKeyDown={handleTimelineKeyDown}
+                  className="w-full relative flex items-center h-6 cursor-pointer select-none mb-3 focus:outline-none"
+                >
+                  <div className="w-full h-[1px] bg-white/40 relative">
+                    <div
+                      className="absolute top-0 left-0 h-[1px] bg-white"
+                      style={{ width: `${progress * 100}%` }}
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 w-[1.5px] h-[14px] bg-white pointer-events-none"
+                      style={{ left: `calc(${progress * 100}% - 0.75px)` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Tier 3: Back (left), Previous (exact center), Next (compact navigation pair with ~40% reduced gap) */}
+                <div className="relative flex items-center justify-between w-full h-[22px]">
+                  <div className="text-left flex items-center">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClosePlayer(e);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      aria-label="Back to project list"
+                      className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none"
+                    >
+                      Back
+                    </button>
+                  </div>
+
+                  {/* Compact Navigation Pair: Previous anchored at exact center of screen, Next closer by ~40% */}
+                  <div className="absolute left-1/2 -translate-x-1/2 flex items-center pointer-events-none">
+                    <div className="relative flex items-center">
+                      <button
+                        type="button"
+                        onClick={handlePrev}
+                        aria-label="Previous project"
+                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                      >
+                        Previous
+                      </button>
+
+                      <div className="absolute left-full pl-[58px] sm:pl-[64px] whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={handleNext}
+                          aria-label="Next project"
+                          className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Project Stills Overlay */}
+            <AnimatePresence>
+              {isStillsOpen && selectedProject.stills && (
+                <motion.div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={`Production stills for ${selectedProject.name}`}
+                  tabIndex={-1}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
+                  className="fixed inset-0 z-[95] flex flex-col bg-white/80 backdrop-blur-[2px] text-neutral-900 overflow-y-auto"
+                  onClick={handleCloseStills}
+                >
+                  {/* Header Bar matching Reference with transparent background */}
+                  <header
+                    onClick={(e) => e.stopPropagation()}
+                    className="fixed top-0 left-0 right-0 z-10 p-6 pt-12 md:p-6 flex items-baseline justify-between select-none bg-transparent"
+                  >
+                    {/* Corner Navigation: Info, Home, Archive at 50% opacity (Hidden on mobile) */}
+                    <nav aria-label="Main Navigation" className="hidden md:flex items-baseline gap-10 sm:gap-14 md:gap-16">
+                      <Link
+                        to="/info"
+                        onClick={() => {
+                          if (videoRef.current) videoRef.current.pause();
+                        }}
+                        className="font-main text-[15.6px] leading-[22px] text-neutral-900 opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity no-underline focus:outline-none focus-visible:underline underline-offset-4"
+                      >
+                        Info
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleGoHome}
+                        aria-label="Return to homepage"
+                        className="font-main text-[15.6px] leading-[22px] text-neutral-900 opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                      >
+                        Home
+                      </button>
+                      <Link
+                        to="/archive"
+                        onClick={() => {
+                          if (videoRef.current) videoRef.current.pause();
+                        }}
+                        className="font-main text-[15.6px] leading-[22px] text-neutral-900 opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity no-underline focus:outline-none focus-visible:underline underline-offset-4"
+                      >
+                        Archive
+                      </Link>
+                    </nav>
+
+                    {/* Viewport-Centred Project Title (Clickable, opening Project Info/Credits - Desktop/Tablet only) */}
+                    <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 top-5 md:top-6 pointer-events-auto items-center justify-center max-w-[42vw] text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsStillsOpen(false);
+                          handleOpenProjectInfo();
+                        }}
+                        aria-label={`View info and credits for ${selectedProject.name}`}
+                        className="font-main text-[15.6px] leading-[22px] text-neutral-900 opacity-90 hover:opacity-50 focus-visible:opacity-100 transition-opacity cursor-pointer truncate focus:outline-none focus-visible:underline underline-offset-4"
+                      >
+                        {selectedProject.name}, {selectedProject.client}
+                      </button>
+                    </div>
+
+                    {/* Project Details: Fixed Positions (Position 1: Info, Position 2: Video) */}
+                    <div className="flex items-baseline gap-6 sm:gap-8 md:gap-10 text-neutral-900 ml-auto md:ml-0">
+                      {selectedProject.year && (
+                        <span className="font-main text-[15.6px] leading-[22px] hidden lg:inline opacity-75">
+                          {selectedProject.year}
+                        </span>
+                      )}
+
+                      {/* Position 1: Info Position (Stills open -> Info: switches directly to Project Info) */}
+                      <div className="w-[44px] sm:w-[48px] text-right inline-flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsStillsOpen(false);
+                            handleOpenProjectInfo();
+                          }}
+                          aria-label="View project info and credits"
+                          className="font-main text-[15.6px] leading-[22px] text-neutral-900 hover:opacity-50 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
+                        >
+                          Info
+                        </button>
+                      </div>
+
+                      {/* Position 2: Stills Position (Stills open -> Video: returns to film without restarting) */}
+                      <div className="w-[46px] sm:w-[50px] text-right inline-flex justify-end">
+                        <button
+                          type="button"
+                          onClick={handleCloseStills}
+                          aria-label="Return to video"
+                          className="font-main text-[15.6px] leading-[22px] text-neutral-900 hover:opacity-50 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
+                        >
+                          Video
+                        </button>
+                      </div>
+                    </div>
+                  </header>
+
+
+                  {/* Stills Vertical Stack */}
+                  <div
+                    className="w-full flex-1 max-w-3xl lg:max-w-4xl mx-auto px-6 sm:px-8 pt-24 md:pt-28 pb-24 flex flex-col items-center gap-16 md:gap-24"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {selectedProject.stills.map((still, idx) => (
+                      <div key={idx} className="w-full flex justify-center">
+                        <img
+                          src={still}
+                          alt={`${selectedProject.name} production still ${idx + 1}`}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          className="w-full h-auto object-contain select-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Project Info & Credits Overlay */}
             <AnimatePresence>
               {isCreditsOpen && (
                 <motion.div
                   ref={creditsOverlayRef}
                   role="dialog"
                   aria-modal="true"
-                  aria-label={`Credits for ${selectedProject.name}`}
+                  aria-label={`Info and credits for ${selectedProject.name}`}
                   tabIndex={-1}
-                  onKeyDown={(e) => handleTrapFocus(e, creditsOverlayRef)}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.5, ease: [0.76, 0, 0.24, 1] }}
-                  className='fixed inset-0 z-[90] flex items-center justify-center'
-                  style={{
-                    outline: 'none',
-                    background: 'rgba(0, 0, 0, 0.5)',
-                    backdropFilter: 'blur(10px)',
-                    WebkitBackdropFilter: 'blur(10px)'
-                  }}
-                  onClick={handleCloseCredits}
+                  transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
+                  className="fixed inset-0 z-[95] flex flex-col bg-white/80 backdrop-blur-[2px] text-neutral-900 overflow-y-auto"
+                  onClick={handleCloseProjectInfo}
                 >
-                  <button
-                    ref={creditsCloseBtnRef}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCloseCredits();
-                    }}
-                    className='absolute top-5 left-5 md:top-6 md:left-6 text-[15.6px] leading-[22px] font-main opacity-75 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-ink/40'
+                  {/* Header Bar matching Reference with transparent background */}
+                  <header
+                    onClick={(e) => e.stopPropagation()}
+                    className="fixed top-0 left-0 right-0 z-10 p-6 pt-12 md:p-6 flex items-baseline justify-between select-none bg-transparent"
                   >
-                    Close
-                  </button>
-                  <div className='flex flex-col md:hidden w-full px-6 py-10 overflow-y-auto max-h-[80vh]' onClick={(e) => e.stopPropagation()}>
-                    <h4 className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold mb-6 text-ink/50'>Credits</h4>
-                    <div className='flex flex-col gap-4'>
-                      {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
-                        const colonIndex = line.indexOf(':');
-                        const role = line.substring(0, colonIndex).trim();
-                        const name = line.substring(colonIndex + 1).trim();
-                        return (
-                          <div key={`credit-${i}`} className='flex flex-col gap-0.5'>
-                            <span className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold text-ink/50'>{role}</span>
-                            <span className='text-[15.6px] leading-[22px] font-main text-ink/95'>{name}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <button
-                      className='mt-8 text-[15.6px] leading-[22px] font-main opacity-75 text-left hover:opacity-100 transition-opacity'
-                      onClick={handleCloseCredits}
-                    >
-                      Close
-                    </button>
-                  </div>
+                    {/* Corner Navigation: Info, Home, Archive at 50% opacity (Hidden on mobile) */}
+                    <nav aria-label="Main Navigation" className="hidden md:flex items-baseline gap-10 sm:gap-14 md:gap-16">
+                      <Link
+                        to="/info"
+                        onClick={() => {
+                          if (videoRef.current) videoRef.current.pause();
+                        }}
+                        className="font-main text-[15.6px] leading-[22px] text-neutral-900 opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity no-underline focus:outline-none focus-visible:underline underline-offset-4"
+                      >
+                        Info
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={handleGoHome}
+                        aria-label="Return to homepage"
+                        className="font-main text-[15.6px] leading-[22px] text-neutral-900 opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4"
+                      >
+                        Home
+                      </button>
+                      <Link
+                        to="/archive"
+                        onClick={() => {
+                          if (videoRef.current) videoRef.current.pause();
+                        }}
+                        className="font-main text-[15.6px] leading-[22px] text-neutral-900 opacity-50 hover:opacity-100 focus-visible:opacity-100 transition-opacity no-underline focus:outline-none focus-visible:underline underline-offset-4"
+                      >
+                        Archive
+                      </Link>
+                    </nav>
 
+                    {/* Viewport-Centred Project Title (Desktop/Tablet only) */}
+                    <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 top-5 md:top-6 pointer-events-auto items-center justify-center max-w-[42vw] text-center">
+                      <span className="font-main text-[15.6px] leading-[22px] text-neutral-900 opacity-90 truncate">
+                        {selectedProject.name}, {selectedProject.client}
+                      </span>
+                    </div>
+
+                    {/* Project Details: Fixed Positions (Position 1: Video, Position 2: Stills) */}
+                    <div className="flex items-baseline gap-6 sm:gap-8 md:gap-10 text-neutral-900 ml-auto md:ml-0">
+                      {selectedProject.year && (
+                        <span className="font-main text-[15.6px] leading-[22px] hidden lg:inline opacity-75">
+                          {selectedProject.year}
+                        </span>
+                      )}
+
+                      {/* Position 1: Info Position (Project Info open -> Video: returns to film without restarting) */}
+                      <div className="w-[44px] sm:w-[48px] text-right inline-flex justify-end">
+                        <button
+                          ref={creditsCloseBtnRef}
+                          type="button"
+                          onClick={handleCloseProjectInfo}
+                          aria-label="Return to video"
+                          className="font-main text-[15.6px] leading-[22px] text-neutral-900 hover:opacity-50 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
+                        >
+                          Video
+                        </button>
+                      </div>
+
+                      {/* Position 2: Stills Position (Project Info open -> Stills: switches directly to Stills) */}
+                      {selectedProject.stills && selectedProject.stills.length > 0 && (
+                        <div className="w-[46px] sm:w-[50px] text-right inline-flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsCreditsOpen(false);
+                              handleOpenStills();
+                            }}
+                            aria-label="View project stills"
+                            className="font-main text-[15.6px] leading-[22px] text-neutral-900 hover:opacity-50 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
+                          >
+                            Stills
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </header>
+
+
+                  {/* Content Layout: Left half completely clear, right half starting at 50% screen center */}
                   <div
-                    className='hidden md:block max-w-2xl w-full px-12 py-12 rounded-sm overflow-y-auto max-h-[80vh]'
+                    className="w-full flex-1 max-w-[1440px] mx-auto px-6 md:px-12 pt-24 pb-20 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <h4 className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold mb-8 text-ink/50'>Credits</h4>
-                    <div className='grid gap-y-3' style={{ gridTemplateColumns: '1fr 1fr' }}>
-                      {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
-                        const colonIndex = line.indexOf(':');
-                        const role = line.substring(0, colonIndex).trim();
-                        const name = line.substring(colonIndex + 1).trim();
-                        return (
-                          <div key={`credit-${i}`} className="contents">
-                            <span className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold text-ink/50 self-baseline'>{role}</span>
-                            <span className='text-[15.6px] leading-[22px] font-main text-ink/95 text-right self-baseline'>{name}</span>
+                    {/* Left column is empty to match Reference */}
+                    <div
+                      className="hidden md:block cursor-pointer h-full"
+                      onClick={handleCloseProjectInfo}
+                      aria-hidden="true"
+                    />
+
+                    {/* Right column holds the synopsis / client presentation, laurels, and credits */}
+                    <div className="space-y-8 md:space-y-10">
+                      <div>
+                        <p className="font-main text-[15.6px] leading-[22px] text-neutral-900/90 max-w-xl">
+                          {selectedProject.name} for {selectedProject.client}.
+                        </p>
+                      </div>
+
+                      {selectedProject.laurelUrls && selectedProject.laurelUrls.length > 0 && (
+                        <div className="flex gap-4 items-center flex-wrap pt-1">
+                          {selectedProject.laurelUrls.map((url, i) => (
+                            <img
+                              key={i}
+                              src={url}
+                              alt=""
+                              aria-hidden="true"
+                              className="h-14 w-auto object-contain opacity-85"
+                              style={{ filter: 'brightness(0)' }}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {selectedProject.credits && selectedProject.credits.trim() !== '' && (
+                        <div className="pt-2">
+                          <p className="text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold text-neutral-500 mb-5">
+                            CREDITS
+                          </p>
+                          <div className="space-y-1.5 max-w-xl">
+                            {selectedProject.credits.split('\n').filter(Boolean).map((line, i) => {
+                              const colonIndex = line.indexOf(':');
+                              if (colonIndex === -1) {
+                                return (
+                                  <p key={i} className="text-[15.6px] leading-[22px] font-main text-neutral-900">
+                                    {line}
+                                  </p>
+                                );
+                              }
+                              const role = line.substring(0, colonIndex).trim();
+                              const name = line.substring(colonIndex + 1).trim();
+                              return (
+                                <div key={i} className="grid grid-cols-[130px_1fr] sm:grid-cols-[170px_1fr] gap-x-4 items-baseline">
+                                  <span className="font-main text-[15.6px] leading-[22px] text-neutral-500">
+                                    {role}
+                                  </span>
+                                  <span className="font-main text-[15.6px] leading-[22px] text-neutral-900">
+                                    {name}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -1165,11 +2048,15 @@ function MainView() {
             tabIndex={-1}
             onKeyDown={(e) => handleTrapFocus(e, aboutOverlayRef)}
             style={{ outline: 'none' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.76, 0, 0.24, 1] }}
-            className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-bg/92 backdrop-blur-md"
+            initial={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(0% 50% 0% 50%)' }}
+            animate={shouldReduceMotion ? { opacity: 1 } : { clipPath: 'inset(0% 0% 0% 0%)' }}
+            exit={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(0% 50% 0% 50%)' }}
+            transition={
+              shouldReduceMotion
+                ? { duration: 0.2, ease: 'easeOut' }
+                : { duration: 0.65, ease: [0.5, 0.25, 0, 1] }
+            }
+            className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-white/80 backdrop-blur-[2px] text-neutral-800"
             onClick={() => navigate('/')}
           >
             {/* Top-Left Close Button matching reference corner padding 8.5px */}
@@ -1183,7 +2070,7 @@ function MainView() {
                 navigate('/');
               }}
               aria-label="Close Info"
-              className="fixed top-5 left-5 md:top-6 md:left-6 z-[90] text-[15.6px] leading-[22px] font-main opacity-60 hover:opacity-100 transition-opacity focus:outline-none focus:ring-1 focus:ring-ink/40 cursor-pointer"
+              className="fixed top-5 left-5 md:top-6 md:left-6 z-[90] text-[15.6px] leading-[22px] font-main text-neutral-800 hover:text-neutral-500 opacity-80 hover:opacity-100 transition-opacity focus:outline-none focus-visible:underline underline-offset-4 cursor-pointer"
             >
               Close
             </button>
@@ -1201,23 +2088,23 @@ function MainView() {
                     <img
                       src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
                       alt="Janik Rai"
-                      className="w-[180px] sm:w-[220px] aspect-[3/4] object-cover rounded-sm border border-white/10 shadow-xl select-none"
+                      className="w-[180px] sm:w-[220px] aspect-[3/4] object-cover select-none"
                       referrerPolicy="no-referrer"
                     />
                   </div>
 
                   {/* Biography */}
                   <div className="space-y-3.5">
-                    <p className="text-[15.6px] leading-[22px] text-ink/90 font-main font-normal">
+                    <p className="text-[15.6px] leading-[22px] text-neutral-800 font-main font-normal">
                       Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality.
                     </p>
 
                     {isBioExpanded && (
                       <div id="bio-more-content" className="space-y-3.5 pt-1">
-                        <p className="text-[15.6px] leading-[22px] text-ink/90 font-main font-normal">
+                        <p className="text-[15.6px] leading-[22px] text-neutral-800 font-main font-normal">
                           Self-taught, Rai began his filmmaking career in music videos, working with some of the world’s biggest South Asian artists. It was through these early projects that he developed his approach to visual storytelling, which became the foundation of his commercial work.
                         </p>
-                        <p className="text-[15.6px] leading-[22px] text-ink/90 font-main font-normal">
+                        <p className="text-[15.6px] leading-[22px] text-neutral-800 font-main font-normal">
                           Across commercials and branded content, his approach begins with what an image can communicate through behaviour, atmosphere and detail. He gives the gestures and interactions that make a moment believable as much attention as the frame itself.
                         </p>
                       </div>
@@ -1229,7 +2116,7 @@ function MainView() {
                         onClick={() => setIsBioExpanded(!isBioExpanded)}
                         aria-expanded={isBioExpanded}
                         aria-controls="bio-more-content"
-                        className="inline-block text-[15.6px] leading-[22px] font-main italic underline underline-offset-4 decoration-ink/40 hover:decoration-ink opacity-70 hover:opacity-100 transition-all cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-ink/40"
+                        className="inline-block text-[15.6px] leading-[22px] font-main italic underline underline-offset-4 decoration-neutral-400 hover:decoration-neutral-800 text-neutral-800 hover:text-neutral-950 transition-colors cursor-pointer text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-neutral-800"
                       >
                         {isBioExpanded ? 'Less' : 'More'}
                       </button>
@@ -1240,13 +2127,13 @@ function MainView() {
                   <div className="mt-12 md:mt-16 space-y-6 md:space-y-7">
                     {/* Contact */}
                     <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
-                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-ink/50 select-none">
+                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-neutral-500 select-none">
                         Contact
                       </span>
-                      <div className="text-[15.6px] leading-[22px] font-main text-ink/90">
+                      <div className="text-[15.6px] leading-[22px] font-main text-neutral-800">
                         <a
                           href="mailto:contact@janikrai.com"
-                          className="hover:opacity-60 transition-opacity inline-block"
+                          className="hover:text-neutral-500 transition-colors inline-block"
                         >
                           contact@janikrai.com
                         </a>
@@ -1255,15 +2142,15 @@ function MainView() {
 
                     {/* Work */}
                     <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
-                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-ink/50 select-none">
+                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-neutral-500 select-none">
                         Work
                       </span>
-                      <div className="flex flex-col gap-1 text-[15.6px] leading-[22px] font-main text-ink/90">
+                      <div className="flex flex-col gap-1 text-[15.6px] leading-[22px] font-main text-neutral-800">
                         <a
                           href="https://vimeo.com/janikrai"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="hover:opacity-60 transition-opacity inline-block w-fit"
+                          className="hover:text-neutral-500 transition-colors inline-block w-fit"
                         >
                           Vimeo
                         </a>
@@ -1271,7 +2158,7 @@ function MainView() {
                           href="https://www.instagram.com/janikrai"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="hover:opacity-60 transition-opacity inline-block w-fit"
+                          className="hover:text-neutral-500 transition-colors inline-block w-fit"
                         >
                           Instagram
                         </a>
@@ -1280,15 +2167,21 @@ function MainView() {
 
                     {/* Representation */}
                     <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
-                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-ink/50 select-none">
+                      <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-neutral-500 select-none">
                         Representation
                       </span>
-                      <div className="text-[15.6px] leading-[22px] font-main text-ink/90">
+                      <div className="flex flex-col gap-1 text-[15.6px] leading-[22px] font-main text-neutral-800">
                         <a
                           href="mailto:holly@alfredofilms.com"
-                          className="hover:opacity-60 transition-opacity inline-block"
+                          className="hover:text-neutral-500 transition-colors inline-block w-fit"
                         >
                           Alfredo (Canada)
+                        </a>
+                        <a
+                          href="mailto:amanda@mistnoir.tv"
+                          className="hover:text-neutral-500 transition-colors inline-block w-fit"
+                        >
+                          Mist Noir (UAE)
                         </a>
                       </div>
                     </div>
@@ -1301,16 +2194,11 @@ function MainView() {
                     <img
                       src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
                       alt="Janik Rai"
-                      className="w-full aspect-[3/4] object-cover rounded-sm border border-white/10 shadow-2xl select-none"
+                      className="w-full aspect-[3/4] object-cover select-none"
                       referrerPolicy="no-referrer"
                     />
                   </div>
                 </div>
-              </div>
-
-              {/* Bottom Copyright matching reference footer placement */}
-              <div className="pt-16 md:pt-20 text-[15.6px] leading-[22px] font-main text-ink/40">
-                <p>Janik Rai © All Rights Reserved</p>
               </div>
             </div>
           </motion.div>

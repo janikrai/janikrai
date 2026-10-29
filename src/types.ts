@@ -9,6 +9,7 @@ export interface Project {
   laurelUrls?: string[];
   credits?: string;
   stills?: string[];
+  year?: string | number;
 }
 
 export type Category = 'Selected' | 'Commercial' | 'Films' | 'Archive';
