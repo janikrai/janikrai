@@ -1772,10 +1772,10 @@ function MainView() {
                       : 'opacity-0 pointer-events-none'
                   }`}
                 >
-                  {/* Tier 1: Pause/Play (left), Sound (center), Fullscreen (right) */}
-                  <div className="grid grid-cols-3 items-center w-full mb-3 pointer-events-auto">
+                  {/* Tier 1: Pause/Play (left), Sound & Fullscreen (right, sharing column anchors with Previous & Next) */}
+                  <div className="flex items-baseline justify-between w-full mb-3 pointer-events-auto">
                     {/* Play / Pause Toggle */}
-                    <div className="text-left flex items-center">
+                    <div className="text-left flex items-baseline">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1790,38 +1790,41 @@ function MainView() {
                       </button>
                     </div>
 
-                    {/* Sound Toggle */}
-                    <div className="text-center flex items-center justify-center">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleSound(e);
-                        }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        aria-label={isMuted ? 'Turn on sound' : 'Mute sound'}
-                        className={`pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center justify-center select-none ${
-                          isMuted ? 'opacity-40' : 'opacity-90 hover:opacity-50'
-                        }`}
-                      >
-                        Sound
-                      </button>
-                    </div>
+                    {/* Right-aligned Navigation Group: Sound (Col 2) & Fullscreen (Col 3) sharing column anchors with Previous & Next */}
+                    <div className="flex items-baseline justify-end gap-[18px]">
+                      {/* Column 2 Anchor: Sound (left-aligned directly above Previous) */}
+                      <div className="flex items-baseline justify-start min-w-[62px]">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSound(e);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          aria-label={isMuted ? 'Turn on sound' : 'Mute sound'}
+                          className={`pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -my-3 py-3 -ml-3 pl-3 pr-2 -mr-2 inline-flex items-center justify-start select-none ${
+                            isMuted ? 'opacity-40' : 'opacity-90 hover:opacity-50'
+                          }`}
+                        >
+                          Sound
+                        </button>
+                      </div>
 
-                    {/* Fullscreen Toggle */}
-                    <div className="text-right flex items-center justify-end">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFullscreen(e);
-                        }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center justify-end select-none"
-                      >
-                        Fullscreen
-                      </button>
+                      {/* Column 3 Anchor: Fullscreen (aligned directly above Next) */}
+                      <div className="flex items-baseline justify-end min-w-[72px]">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFullscreen(e);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                          className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -my-3 py-3 pl-2 -ml-2 -mr-3 pr-3 inline-flex items-center justify-end select-none whitespace-nowrap"
+                        >
+                          Fullscreen
+                        </button>
+                      </div>
                     </div>
                   </div>
 
@@ -1855,10 +1858,10 @@ function MainView() {
                   </div>
                 </div>
 
-                {/* Persistent Navigation: Tier 3 (Back, Previous, Next) - Stays visible & usable on main video screen */}
-                <div className="relative flex items-center justify-between w-full h-[22px] pointer-events-auto">
+                {/* Persistent Navigation: Tier 3 (Back left-aligned, Previous & Next grouped in right-aligned flex container) */}
+                <div className="flex items-baseline justify-between w-full pointer-events-auto">
                   {/* Back Button */}
-                  <div className="text-left flex items-center">
+                  <div className="text-left flex items-baseline">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -1873,14 +1876,10 @@ function MainView() {
                     </button>
                   </div>
 
-                  {/* Compact Navigation Pair: Positioned as one responsive navigation group */}
-                  <div
-                    className="absolute -translate-x-1/2 flex items-center pointer-events-none"
-                    style={{
-                      left: 'max(calc(50% - 48px), calc(env(safe-area-inset-left, 0px) + 88px))'
-                    }}
-                  >
-                    <div className="flex items-center gap-[50px] sm:gap-[58px] pointer-events-auto">
+                  {/* Right-aligned Navigation Group: Previous (Col 2) & Next (Col 3) sharing column anchors with Sound & Fullscreen */}
+                  <div className="flex items-baseline justify-end gap-[18px]">
+                    {/* Column 2 Anchor: Previous (left-aligned to column anchor) */}
+                    <div className="flex items-baseline justify-start min-w-[62px]">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1889,11 +1888,14 @@ function MainView() {
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
                         aria-label={prevProject ? `Previous project: ${prevProject.name}` : 'Previous project'}
-                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none whitespace-nowrap"
+                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -my-3 py-3 -ml-3 pl-3 pr-2 -mr-2 inline-flex items-center justify-start select-none whitespace-nowrap"
                       >
                         Previous
                       </button>
+                    </div>
 
+                    {/* Column 3 Anchor: Next (aligned directly below Fullscreen) */}
+                    <div className="flex items-baseline justify-end min-w-[72px]">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1902,7 +1904,7 @@ function MainView() {
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
                         aria-label={nextProject ? `Next project: ${nextProject.name}` : 'Next project'}
-                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -m-3 p-3 inline-flex items-center select-none whitespace-nowrap"
+                        className="pointer-events-auto font-main text-[15.6px] leading-[22px] text-ink opacity-90 hover:opacity-50 transition-opacity cursor-pointer focus:outline-none focus-visible:underline underline-offset-4 -my-3 py-3 pl-2 -ml-2 -mr-3 pr-3 inline-flex items-center justify-end select-none whitespace-nowrap"
                       >
                         Next
                       </button>
