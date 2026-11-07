@@ -210,7 +210,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/Nanak%20DC%20Online%20v02%20WEB.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/light-between-us.mp4',
     ratio: 'contain',
-    credits: 'Writer & Director: Janik Rai\nProducer: Marcus Fang & Antony Packer\nDP: Chris Ajtony\nGaffer: Peter Pham\nKey Grip: Alessandro Guerrera\nAC: Alessio Trani\nProduction Designer: Jasleen Notay\nEdit: Janik Rai & Davané\nMusic: Landon Trimble\nSound: Kevin Parker & Lucifer Media Labs\nColourist: Joao Homem\nVFX: Navi Joshi\nBTS: Noah Pope\nProduction Company: Workshop Film Company',
+    credits: 'Writer & Director: Janik Rai\nProducer: Marcus Fang & Antony Packer\nDP: Chris Ajtony\nGaffer: Peter Pham\nKey Grip: Alessandro Guerrera\nAC: Alessio Trani\nProduction Designer: Jasleen Notay\nEditorial: Outsider Editorial\nEditor: Daniel Karan\nPost EP: Kayan Choi\nMusic: Landon Trimble\nSound: Kevin Parker & Lucifer Media Labs\nColourist: Joao Homem\nVFX: Navi Joshi\nBTS: Noah Pope\nProduction Company: Workshop Film Company',
     stills: [
       'https://janikrai.b-cdn.net/Stills/light-between-us/Nanak_Diwali1.jpg',
       'https://janikrai.b-cdn.net/Stills/light-between-us/Nanak_Diwali2.jpg',
