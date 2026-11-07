@@ -33,7 +33,7 @@ export const PROJECTS: Project[] = [
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/this_is_home_-_vancouver_bandits_v1%20(2160p).mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/Bandits_Teaser.mp4',
     ratio: 'contain',
-    credits: `EP: Milan Mann, Janik Rai
+    credits: `EPs: Milan Mann, Janik Rai
 Producer: Kenny Macintyre
 Director: Janik Rai
 PM: Manuel Thompson
@@ -174,7 +174,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/barcelos.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/barcelos.mp4',
     ratio: 'contain',
-    credits: 'Director: Janik Rai\nProducer: Dhun Sharma & Sagar Deol\nDP: Chris Ajtony\nGaffer: Mike Pintea\nKey Grip: Dayton Lewis\n1st AC: Miguel M\nEditor: Hayley Sawatzky\nMusic: Glyn Allen\nColourist: João Homem\nCamera: Keslow Camera',
+    credits: 'Director: Janik Rai\nProducers: Dhun Sharma & Sagar Deol\nDP: Chris Ajtony\nGaffer: Mike Pintea\nKey Grip: Dayton Lewis\n1st AC: Miguel M\nEditor: Hayley Sawatzky\nMusic: Glyn Allen\nColourist: João Homem\nCamera: Keslow Camera',
     stills: [
       'https://janikrai.b-cdn.net/Stills/Barcelos/barcelos_1.jpg',
       'https://janikrai.b-cdn.net/Stills/Barcelos/barcelos_2.jpg',
@@ -210,7 +210,7 @@ VFX: Zee Khan`,
     videoUrl: 'https://janikrai.b-cdn.net/Final%20Films/Nanak%20DC%20Online%20v02%20WEB.mp4',
     teaserUrl: 'https://janikrai.b-cdn.net/Teasers/light-between-us.mp4',
     ratio: 'contain',
-    credits: 'Writer & Director: Janik Rai\nProducer: Marcus Fang & Antony Packer\nDP: Chris Ajtony\nGaffer: Peter Pham\nKey Grip: Alessandro Guerrera\nAC: Alessio Trani\nProduction Designer: Jasleen Notay\nEditorial: Outsider Editorial\nEditor: Daniel Karan\nPost EP: Kayan Choi\nMusic: Landon Trimble\nSound: Kevin Parker & Lucifer Media Labs\nColourist: Joao Homem\nVFX: Navi Joshi\nBTS: Noah Pope\nProduction Company: Workshop Film Company',
+    credits: 'Writer & Director: Janik Rai\nProducers: Marcus Fang & Antony Packer\nDP: Chris Ajtony\nGaffer: Peter Pham\nKey Grip: Alessandro Guerrera\nAC: Alessio Trani\nProduction Designer: Jasleen Notay\nEditorial: Outsider Editorial\nEditor: Daniel Karan\nPost EP: Kayan Choi\nMusic: Landon Trimble\nSound: Kevin Parker & Lucifer Media Labs\nColourist: Joao Homem\nVFX: Navi Joshi\nBTS: Noah Pope\nProduction Company: Workshop Film Company',
     stills: [
       'https://janikrai.b-cdn.net/Stills/light-between-us/Nanak_Diwali1.jpg',
       'https://janikrai.b-cdn.net/Stills/light-between-us/Nanak_Diwali2.jpg',

@@ -244,6 +244,43 @@ function MainView() {
 
   const shouldReduceMotion = useReducedMotion();
 
+  // Track if project was opened from homepage (Selected collection or direct link to Selected project)
+  const isProjectFromHome = Boolean(
+    selectedProject &&
+    (cameFrom === '/' || cameFrom === '/info' || (!cameFrom && selectedProject.tags.includes('Selected')))
+  );
+
+  const isArchiveOrigin = Boolean(
+    activeCategory === 'Archive' ||
+    cameFrom === '/archive' ||
+    (selectedProject && !selectedProject.tags.includes('Selected'))
+  );
+
+  const isArchiveActive = Boolean(
+    isArchiveOrigin ||
+    location.pathname === '/archive' ||
+    activeCategory === 'Archive'
+  );
+
+  // Title splits when opening main Info or a project from homepage; never on Archive or Archive projects
+  const isTitleSplit = Boolean(!isArchiveOrigin && (isAboutOpen || isProjectFromHome));
+
+  const [isTitleInteractable, setIsTitleInteractable] = useState<boolean>(
+    () => !isOverlayOpen && !isArchiveActive
+  );
+
+  useEffect(() => {
+    if (isTitleSplit || isOverlayOpen || isArchiveActive) {
+      setIsTitleInteractable(false);
+    }
+  }, [isTitleSplit, isOverlayOpen, isArchiveActive]);
+
+  const handleTitleAnimationComplete = useCallback(() => {
+    if (!isTitleSplit && !isOverlayOpen && !isArchiveActive) {
+      setIsTitleInteractable(true);
+    }
+  }, [isTitleSplit, isOverlayOpen, isArchiveActive]);
+
   // Stop film audio immediately when closing a project, even while its visual closing animation finishes
   useEffect(() => {
     if (!selectedProject && videoRef.current) {
@@ -1102,31 +1139,59 @@ function MainView() {
         </div>
       </nav>
 
-      {/* Centred Director Name (Reference Layout & Inward Hover Animation, +2px Typography) */}
+      {/* Centred Director Name (Coordinated with Horizontal Page-Wipe & Inward Hover Animation) */}
       <div
-        inert={isOverlayOpen ? true : undefined}
-        className={`fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none transition-opacity duration-300 ${
-          isAboutOpen || selectedProject || activeCategory === 'Archive' ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        inert={!isTitleInteractable ? true : undefined}
+        className={`fixed inset-x-0 top-1/2 -translate-y-1/2 z-[75] pointer-events-none flex items-center justify-center overflow-hidden transition-opacity duration-300 ${
+          isArchiveActive ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
       >
         <Link
           to="/info"
           aria-label="Janik Rai — View Director Info"
-          className="group pointer-events-auto relative inline-flex items-center justify-center text-inherit no-underline cursor-pointer select-none py-10 px-8 sm:px-14 md:px-20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/60"
+          tabIndex={isTitleInteractable ? 0 : -1}
+          className={`group relative inline-flex items-center justify-center text-inherit no-underline select-none py-10 px-8 sm:px-14 md:px-20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/60 ${
+            isTitleInteractable ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none cursor-default'
+          }`}
         >
           <div className="flex items-center justify-center gap-20 sm:gap-28 md:gap-36 lg:gap-48 pointer-events-none">
-            <span
-              style={{ filter: 'blur(0.5px)' }}
-              className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:translate-x-6 sm:group-hover:translate-x-10 group-focus-visible:translate-x-6 sm:group-focus-visible:translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform"
+            <motion.div
+              animate={isTitleSplit && !shouldReduceMotion ? { x: '-60vw' } : { x: 0 }}
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0.2 }
+                  : isTitleSplit
+                  ? { duration: 0.70, ease: [0.5, 0.25, 0, 1] }
+                  : { duration: 0.65, ease: [0.5, 0.25, 0, 1] }
+              }
+              onAnimationComplete={handleTitleAnimationComplete}
+              className="inline-flex will-change-transform"
             >
-              Janik
-            </span>
-            <span
-              style={{ filter: 'blur(0.5px)' }}
-              className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:-translate-x-6 sm:group-hover:-translate-x-10 group-focus-visible:-translate-x-6 sm:group-focus-visible:-translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform"
+              <span
+                style={{ filter: 'blur(0.5px)' }}
+                className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:translate-x-6 sm:group-hover:translate-x-10 group-focus-visible:translate-x-6 sm:group-focus-visible:translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform"
+              >
+                Janik
+              </span>
+            </motion.div>
+            <motion.div
+              animate={isTitleSplit && !shouldReduceMotion ? { x: '60vw' } : { x: 0 }}
+              transition={
+                shouldReduceMotion
+                  ? { duration: 0.2 }
+                  : isTitleSplit
+                  ? { duration: 0.70, ease: [0.5, 0.25, 0, 1] }
+                  : { duration: 0.65, ease: [0.5, 0.25, 0, 1] }
+              }
+              className="inline-flex will-change-transform"
             >
-              Rai
-            </span>
+              <span
+                style={{ filter: 'blur(0.5px)' }}
+                className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:-translate-x-6 sm:group-hover:-translate-x-10 group-focus-visible:-translate-x-6 sm:group-focus-visible:-translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform"
+              >
+                Rai
+              </span>
+            </motion.div>
           </div>
         </Link>
       </div>
@@ -1338,11 +1403,15 @@ function MainView() {
             style={{ outline: 'none' }}
             initial={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(0% 50% 0% 50%)' }}
             animate={shouldReduceMotion ? { opacity: 1 } : { clipPath: 'inset(0% 0% 0% 0%)' }}
-            exit={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(0% 50% 0% 50%)' }}
+            exit={
+              shouldReduceMotion
+                ? { opacity: 0, transition: { duration: 0.2, ease: 'easeOut' } }
+                : { clipPath: 'inset(0% 50% 0% 50%)', transition: { duration: 0.65, delay: 0, ease: [0.5, 0.25, 0, 1] } }
+            }
             transition={
               shouldReduceMotion
                 ? { duration: 0.2, ease: 'easeOut' }
-                : { duration: 0.65, ease: [0.5, 0.25, 0, 1] }
+                : { duration: 0.65, delay: isProjectFromHome ? 0.05 : 0, ease: [0.5, 0.25, 0, 1] }
             }
             onAnimationStart={() => {
               if (!selectedProject && videoRef.current) {
@@ -1363,6 +1432,7 @@ function MainView() {
                 src={selectedProject.videoUrl}
                 poster={getPoster(selectedProject)}
                 playsInline
+                loop
                 preload="auto"
                 onPlay={() => setIsPlaying(true)}
                 onPlaying={() => {
@@ -1395,9 +1465,10 @@ function MainView() {
                   setIsControlsVisible(true);
                 }}
                 onEnded={() => {
-                  setIsPlaying(false);
-                  clearInactivityTimer();
-                  setIsControlsVisible(true);
+                  if (videoRef.current) {
+                    videoRef.current.currentTime = 0;
+                    videoRef.current.play().catch(() => {});
+                  }
                 }}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
@@ -2224,11 +2295,15 @@ function MainView() {
             style={{ outline: 'none' }}
             initial={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(0% 50% 0% 50%)' }}
             animate={shouldReduceMotion ? { opacity: 1 } : { clipPath: 'inset(0% 0% 0% 0%)' }}
-            exit={shouldReduceMotion ? { opacity: 0 } : { clipPath: 'inset(0% 50% 0% 50%)' }}
+            exit={
+              shouldReduceMotion
+                ? { opacity: 0, transition: { duration: 0.2, ease: 'easeOut' } }
+                : { clipPath: 'inset(0% 50% 0% 50%)', transition: { duration: 0.65, delay: 0, ease: [0.5, 0.25, 0, 1] } }
+            }
             transition={
               shouldReduceMotion
                 ? { duration: 0.2, ease: 'easeOut' }
-                : { duration: 0.65, ease: [0.5, 0.25, 0, 1] }
+                : { duration: 0.65, delay: 0.05, ease: [0.5, 0.25, 0, 1] }
             }
             className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-white/80 backdrop-blur-[2px] text-neutral-800"
             onClick={() => navigate('/')}
