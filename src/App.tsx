@@ -264,22 +264,14 @@ function MainView() {
 
   // Title splits when opening main Info or a project from homepage; never on Archive or Archive projects
   const isTitleSplit = Boolean(!isArchiveOrigin && (isAboutOpen || isProjectFromHome));
+  const isTitleInteractable = Boolean(!isOverlayOpen && !isArchiveActive);
 
-  const [isTitleInteractable, setIsTitleInteractable] = useState<boolean>(
-    () => !isOverlayOpen && !isArchiveActive
-  );
-
-  useEffect(() => {
-    if (isTitleSplit || isOverlayOpen || isArchiveActive) {
-      setIsTitleInteractable(false);
-    }
-  }, [isTitleSplit, isOverlayOpen, isArchiveActive]);
-
-  const handleTitleAnimationComplete = useCallback(() => {
-    if (!isTitleSplit && !isOverlayOpen && !isArchiveActive) {
-      setIsTitleInteractable(true);
-    }
-  }, [isTitleSplit, isOverlayOpen, isArchiveActive]);
+  // Stable desktop & tablet project list mounted continuously across Selected and Archive
+  const desktopProjects = useMemo(() => {
+    return ARCHIVE_PROJECT_ORDER
+      .map(id => PROJECTS.find(p => p.id === id))
+      .filter((p): p is Project => Boolean(p));
+  }, []);
 
   // Stop film audio immediately when closing a project, even while its visual closing animation finishes
   useEffect(() => {
@@ -412,7 +404,7 @@ function MainView() {
     nextVideo.poster = getPoster(activeTeaser);
     nextVideo.load();
 
-    if (!isOverlayOpen && !isTabHidden) {
+    if (!selectedProject && !isTabHidden) {
       nextVideo.play().catch(() => {});
     }
 
@@ -428,36 +420,45 @@ function MainView() {
       if (pauseTimer) clearTimeout(pauseTimer);
       nextVideo.removeEventListener('canplay', swap);
     };
-  }, [activeTeaser, isDesktop, filteredProjects, isOverlayOpen, isTabHidden]);
+  }, [activeTeaser, isDesktop, filteredProjects, selectedProject, isTabHidden]);
 
-  // Pause desktop background videos while an overlay is open or tab is hidden
+  // Pause desktop background videos while a full project film is open or tab is hidden; keep playing behind About
   useEffect(() => {
     if (!isDesktop) return;
     const currentBgVideo = activeBgIndex === 0 ? bgVideoRef0.current : bgVideoRef1.current;
 
-    if (isOverlayOpen || isTabHidden) {
+    if (selectedProject || isTabHidden) {
       bgVideoRef0.current?.pause();
       bgVideoRef1.current?.pause();
     } else {
       currentBgVideo?.play().catch(() => {});
     }
-  }, [isOverlayOpen, isTabHidden, isDesktop, activeBgIndex]);
+  }, [selectedProject, isTabHidden, isDesktop, activeBgIndex]);
 
-  // Mobile video playback for active swipe index
+  // Mobile video playback for active swipe index; keep playing behind About
   useEffect(() => {
     if (isDesktop) return;
 
     filteredProjects.forEach((project, i) => {
       const videoEl = document.getElementById(`mobile-video-${project.id}`) as HTMLVideoElement | null;
       if (videoEl) {
-        if (i === mobileIndex && !isOverlayOpen && !isTabHidden && activeCategory === 'Selected') {
+        const isCurrentActive = i === mobileIndex;
+        const shouldPlay = isCurrentActive && !selectedProject && !isTabHidden && (activeCategory === 'Selected' || isAboutOpen);
+        if (shouldPlay) {
           videoEl.play().catch(() => {});
         } else {
           videoEl.pause();
         }
       }
     });
-  }, [mobileIndex, filteredProjects, isDesktop, isOverlayOpen, isTabHidden, activeCategory]);
+  }, [mobileIndex, filteredProjects, isDesktop, selectedProject, isTabHidden, activeCategory, isAboutOpen]);
+
+  // On mobile, keep activeTeaser in sync with the last active swipe preview
+  useEffect(() => {
+    if (!isDesktop && filteredProjects[mobileIndex]) {
+      setActiveTeaser(filteredProjects[mobileIndex]);
+    }
+  }, [mobileIndex, filteredProjects, isDesktop]);
 
   useEffect(() => {
     setMobileIndex(0);
@@ -1139,9 +1140,8 @@ function MainView() {
         </div>
       </nav>
 
-      {/* Centred Director Name (Coordinated with Horizontal Page-Wipe & Inward Hover Animation) */}
+      {/* Centred Director Name (Separate Nested Elements for Outward Page Wipe vs Inward Hover) */}
       <div
-        inert={!isTitleInteractable ? true : undefined}
         className={`fixed inset-x-0 top-1/2 -translate-y-1/2 z-[75] pointer-events-none flex items-center justify-center overflow-hidden transition-opacity duration-300 ${
           isArchiveActive ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
@@ -1153,8 +1153,14 @@ function MainView() {
           className={`group relative inline-flex items-center justify-center text-inherit no-underline select-none py-10 px-8 sm:px-14 md:px-20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ink/60 ${
             isTitleInteractable ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none cursor-default'
           }`}
+          onClick={(e) => {
+            if (!isTitleInteractable) {
+              e.preventDefault();
+            }
+          }}
         >
           <div className="flex items-center justify-center gap-20 sm:gap-28 md:gap-36 lg:gap-48 pointer-events-none">
+            {/* Left: Janik (Outer motion.div handles page outward/inward transition; Inner span handles hover) */}
             <motion.div
               animate={isTitleSplit && !shouldReduceMotion ? { x: '-60vw' } : { x: 0 }}
               transition={
@@ -1164,16 +1170,17 @@ function MainView() {
                   ? { duration: 0.70, ease: [0.5, 0.25, 0, 1] }
                   : { duration: 0.65, ease: [0.5, 0.25, 0, 1] }
               }
-              onAnimationComplete={handleTitleAnimationComplete}
               className="inline-flex will-change-transform"
             >
               <span
                 style={{ filter: 'blur(0.5px)' }}
-                className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:translate-x-6 sm:group-hover:translate-x-10 group-focus-visible:translate-x-6 sm:group-focus-visible:translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform"
+                className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:translate-x-6 sm:group-hover:translate-x-10 group-focus-visible:translate-x-6 sm:group-focus-visible:translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform inline-block select-none"
               >
                 Janik
               </span>
             </motion.div>
+
+            {/* Right: Rai (Outer motion.div handles page outward/inward transition; Inner span handles hover) */}
             <motion.div
               animate={isTitleSplit && !shouldReduceMotion ? { x: '60vw' } : { x: 0 }}
               transition={
@@ -1187,7 +1194,7 @@ function MainView() {
             >
               <span
                 style={{ filter: 'blur(0.5px)' }}
-                className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:-translate-x-6 sm:group-hover:-translate-x-10 group-focus-visible:-translate-x-6 sm:group-focus-visible:-translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform"
+                className="font-heading text-[15.6px] sm:text-[16px] md:text-[17px] font-semibold uppercase tracking-[0.06em] text-ink/90 group-hover:text-ink transition-transform duration-[450ms] [transition-timing-function:cubic-bezier(0.5,0.25,0,1)] group-hover:-translate-x-6 sm:group-hover:-translate-x-10 group-focus-visible:-translate-x-6 sm:group-focus-visible:-translate-x-10 motion-reduce:transform-none motion-reduce:transition-none whitespace-nowrap will-change-transform inline-block select-none"
               >
                 Rai
               </span>
@@ -1207,42 +1214,110 @@ function MainView() {
           style={{ paddingLeft: selectedLeft ? `${selectedLeft}px` : undefined }}
         >
           <div className={`space-y-0 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-            {filteredProjects.map((project) => {
-              const isHovered = hoveredProject?.id === project.id;
-              return (
-                <Link
-                  key={project.id}
-                  to={`/work/${project.id}`}
-                  state={{ from: location.pathname }}
-                  onMouseEnter={() => {
-                    setHoveredProject(project);
-                    setActiveTeaser(project);
-                  }}
-                  onMouseLeave={() => setHoveredProject(null)}
-                  onFocus={() => {
-                    setHoveredProject(project);
-                    setActiveTeaser(project);
-                  }}
-                  onBlur={() => setHoveredProject(null)}
-                  className="group grid grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline cursor-pointer no-underline text-inherit mb-[4.4px] leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2"
-                >
-                  <span
-                    className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
-                      isHovered ? 'opacity-100 text-ink' : 'opacity-55 group-hover:opacity-100 text-ink'
-                    }`}
+            <div className="space-y-0">
+              {desktopProjects.map((project) => {
+                const isHovered = hoveredProject?.id === project.id;
+                const isSelected = project.tags.includes('Selected');
+                const isExpanded = isSelected || activeCategory === 'Archive';
+
+                if (isSelected) {
+                  return (
+                    <div key={project.id} className="mb-[4.4px]">
+                      <Link
+                        to={`/work/${project.id}`}
+                        state={{ from: location.pathname }}
+                        onMouseEnter={() => {
+                          setHoveredProject(project);
+                          setActiveTeaser(project);
+                        }}
+                        onMouseLeave={() => setHoveredProject(null)}
+                        onFocus={() => {
+                          setHoveredProject(project);
+                          setActiveTeaser(project);
+                        }}
+                        onBlur={() => setHoveredProject(null)}
+                        className="group grid grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline cursor-pointer no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2"
+                      >
+                        <span
+                          className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
+                            isHovered ? 'opacity-100 text-ink' : 'opacity-55 group-hover:opacity-100 text-ink'
+                          }`}
+                        >
+                          {project.name}
+                        </span>
+                        <span
+                          className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
+                            isHovered ? 'opacity-75 text-ink' : 'opacity-40 group-hover:opacity-65 text-ink'
+                          }`}
+                        >
+                          {project.client}
+                        </span>
+                      </Link>
+                    </div>
+                  );
+                }
+
+                return (
+                  <motion.div
+                    key={project.id}
+                    initial={false}
+                    animate={{
+                      height: isExpanded ? 'auto' : 0,
+                      marginBottom: isExpanded ? 4.4 : 0,
+                      opacity: isExpanded ? 1 : 0,
+                    }}
+                    transition={
+                      shouldReduceMotion
+                        ? { duration: 0 }
+                        : {
+                            duration: 0.35,
+                            ease: [0.4, 0, 0.2, 1],
+                          }
+                    }
+                    style={{ overflow: 'hidden' }}
+                    inert={!isExpanded ? true : undefined}
+                    className="will-change-[height,opacity,margin]"
                   >
-                    {project.name}
-                  </span>
-                  <span
-                    className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
-                      isHovered ? 'opacity-75 text-ink' : 'opacity-40 group-hover:opacity-65 text-ink'
-                    }`}
-                  >
-                    {project.client}
-                  </span>
-                </Link>
-              );
-            })}
+                    <Link
+                      to={`/work/${project.id}`}
+                      state={{ from: location.pathname }}
+                      tabIndex={isExpanded ? 0 : -1}
+                      aria-hidden={!isExpanded}
+                      onMouseEnter={() => {
+                        if (!isExpanded) return;
+                        setHoveredProject(project);
+                        setActiveTeaser(project);
+                      }}
+                      onMouseLeave={() => setHoveredProject(null)}
+                      onFocus={() => {
+                        if (!isExpanded) return;
+                        setHoveredProject(project);
+                        setActiveTeaser(project);
+                      }}
+                      onBlur={() => setHoveredProject(null)}
+                      className={`group grid grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2 ${
+                        isExpanded ? 'cursor-pointer pointer-events-auto' : 'cursor-default pointer-events-none'
+                      }`}
+                    >
+                      <span
+                        className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
+                          isHovered ? 'opacity-100 text-ink' : 'opacity-55 group-hover:opacity-100 text-ink'
+                        }`}
+                      >
+                        {project.name}
+                      </span>
+                      <span
+                        className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
+                          isHovered ? 'opacity-75 text-ink' : 'opacity-40 group-hover:opacity-65 text-ink'
+                        }`}
+                      >
+                        {project.client}
+                      </span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -1406,7 +1481,7 @@ function MainView() {
             exit={
               shouldReduceMotion
                 ? { opacity: 0, transition: { duration: 0.2, ease: 'easeOut' } }
-                : { clipPath: 'inset(0% 50% 0% 50%)', transition: { duration: 0.65, delay: 0, ease: [0.5, 0.25, 0, 1] } }
+                : { clipPath: 'inset(0% 50% 0% 50%)', transition: { duration: 0.65, ease: [0.5, 0.25, 0, 1] } }
             }
             transition={
               shouldReduceMotion
@@ -2298,7 +2373,7 @@ function MainView() {
             exit={
               shouldReduceMotion
                 ? { opacity: 0, transition: { duration: 0.2, ease: 'easeOut' } }
-                : { clipPath: 'inset(0% 50% 0% 50%)', transition: { duration: 0.65, delay: 0, ease: [0.5, 0.25, 0, 1] } }
+                : { clipPath: 'inset(0% 50% 0% 50%)', transition: { duration: 0.65, ease: [0.5, 0.25, 0, 1] } }
             }
             transition={
               shouldReduceMotion
