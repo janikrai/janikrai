@@ -24,6 +24,184 @@ StrikeButton.displayName = 'StrikeButton';
 
 const getPoster = (project: Project) => project.stills?.[0] ?? '';
 
+const MAX_CACHED_VIDEOS = 8;
+
+const isImageTeaser = (url: string) => /\.(gif|webp|png|jpe?g)(\?.*)?$/i.test(url);
+
+interface PreviewPoolEntry {
+  project: Project;
+  hasFirstFrame: boolean;
+}
+
+function PooledPreviewMedia({
+  project,
+  isCurrent,
+  isVisible,
+  zIndex,
+  shouldPlay,
+  latestPreviewIdRef,
+  onFirstFrame,
+  registerVideoRef,
+}: {
+  key?: React.Key;
+  project: Project;
+  isCurrent: boolean;
+  isVisible: boolean;
+  zIndex: number;
+  shouldPlay: boolean;
+  latestPreviewIdRef: React.MutableRefObject<string>;
+  onFirstFrame: (projectId: string) => void;
+  registerVideoRef: (projectId: string, el: HTMLVideoElement | null) => void;
+}) {
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
+  const reportedRef = useRef(false);
+  const loadedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const teaserUrl = project.teaserUrl || '';
+  const isGifOrImage = isImageTeaser(teaserUrl);
+
+  const reportFirstFrame = useCallback(() => {
+    if (reportedRef.current) return;
+    reportedRef.current = true;
+    onFirstFrame(project.id);
+  }, [onFirstFrame, project.id]);
+
+  useEffect(() => {
+    if (isGifOrImage || !teaserUrl) return;
+    const el = videoElRef.current;
+    registerVideoRef(project.id, el);
+
+    return () => {
+      if (loadedTimerRef.current) {
+        clearTimeout(loadedTimerRef.current);
+        loadedTimerRef.current = null;
+      }
+      registerVideoRef(project.id, null);
+      if (el) {
+        el.pause();
+        // Only strip src on true DOM removal, never during React StrictMode mount-test cleanup
+        queueMicrotask(() => {
+          if (!el.isConnected) {
+            el.removeAttribute('src');
+            el.load();
+          }
+        });
+      }
+    };
+  }, [isGifOrImage, teaserUrl, project.id, registerVideoRef]);
+
+  useEffect(() => {
+    if (isGifOrImage || !teaserUrl) return;
+    const el = videoElRef.current;
+    if (!el) return;
+
+    if (shouldPlay && isCurrent && latestPreviewIdRef.current === project.id) {
+      if (el.paused) {
+        el.play().catch(() => {});
+      }
+      if (el.readyState >= 2) {
+        reportFirstFrame();
+      }
+    } else if (!el.paused) {
+      el.pause();
+    }
+  }, [isGifOrImage, teaserUrl, shouldPlay, isCurrent, project.id, latestPreviewIdRef, reportFirstFrame]);
+
+  if (!teaserUrl) {
+    return null;
+  }
+
+  if (isGifOrImage) {
+    return (
+      <img
+        src={teaserUrl}
+        alt=""
+        aria-hidden="true"
+        onLoad={reportFirstFrame}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          opacity: isVisible ? 1 : 0,
+          zIndex,
+          pointerEvents: 'none',
+        }}
+      />
+    );
+  }
+
+  return (
+    <video
+      ref={videoElRef}
+      src={teaserUrl}
+      muted
+      loop
+      playsInline
+      preload="auto"
+      onLoadedData={(e) => {
+        const el = e.currentTarget;
+        if (latestPreviewIdRef.current !== project.id) {
+          el.pause();
+          return;
+        }
+        if (shouldPlay) {
+          el.play().catch(() => {});
+        }
+        if (el.readyState >= 2) {
+          if (!shouldPlay) {
+            reportFirstFrame();
+          } else {
+            const v = el as HTMLVideoElement & {
+              requestVideoFrameCallback?: (cb: () => void) => number;
+            };
+            if (typeof v.requestVideoFrameCallback === 'function') {
+              v.requestVideoFrameCallback(() => {
+                if (latestPreviewIdRef.current === project.id) {
+                  reportFirstFrame();
+                }
+              });
+            }
+            if (loadedTimerRef.current) clearTimeout(loadedTimerRef.current);
+            loadedTimerRef.current = setTimeout(() => {
+              if (el.readyState >= 2 && latestPreviewIdRef.current === project.id) {
+                reportFirstFrame();
+              }
+            }, 50);
+          }
+        }
+      }}
+      onCanPlay={(e) => {
+        const el = e.currentTarget;
+        if (latestPreviewIdRef.current !== project.id) {
+          el.pause();
+          return;
+        }
+        if (shouldPlay && el.paused) {
+          el.play().catch(() => {});
+        }
+      }}
+      onPlaying={(e) => {
+        if (latestPreviewIdRef.current !== project.id) {
+          e.currentTarget.pause();
+          return;
+        }
+        reportFirstFrame();
+      }}
+      style={{
+        position: 'absolute',
+        inset: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        opacity: isVisible ? 1 : 0,
+        zIndex,
+        pointerEvents: 'none',
+      }}
+    />
+  );
+}
+
 function formatTime(seconds: number): string {
   if (isNaN(seconds) || seconds < 0) return '0:00';
   const mins = Math.floor(seconds / 60);
@@ -170,6 +348,13 @@ function MainView() {
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
+  const [supportsHover, setSupportsHover] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true;
+    return (
+      window.matchMedia('(hover: hover)').matches ||
+      window.matchMedia('(any-hover: hover)').matches
+    );
+  });
   const [isTabHidden, setIsTabHidden] = useState(() =>
     typeof document !== 'undefined' ? document.hidden : false
   );
@@ -350,90 +535,172 @@ function MainView() {
   };
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const bgVideoRef0 = useRef<HTMLVideoElement>(null);
-  const bgVideoRef1 = useRef<HTMLVideoElement>(null);
-  const [activeBgIndex, setActiveBgIndex] = useState(0);
+  const latestPreviewIdRef = useRef<string>(PROJECTS[0].id);
+  const lastTouchTimeRef = useRef<number>(0);
+  const poolVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
+  const [loadedPosters, setLoadedPosters] = useState<Set<string>>(() => new Set());
+  const [videoPool, setVideoPool] = useState<PreviewPoolEntry[]>(() => [
+    { project: PROJECTS[0], hasFirstFrame: false },
+  ]);
+  const [lastFilledProject, setLastFilledProject] = useState<Project>(PROJECTS[0]);
 
-  // Desktop background video crossfade with readyState check & outgoing pause
-  useEffect(() => {
-    if (!isDesktop) return;
-
-    const refs = [bgVideoRef0, bgVideoRef1];
-    const prevIndex = activeBgIndex;
-    const nextIndex = activeBgIndex === 0 ? 1 : 0;
-    const nextVideo = refs[nextIndex].current;
-    const prevVideo = refs[prevIndex].current;
-    if (!nextVideo) return;
-
-    let cancelled = false;
-    let pauseTimer: NodeJS.Timeout | null = null;
-    let swapTimer: NodeJS.Timeout | null = null;
-    const startTime = Date.now();
-
-    const swap = () => {
-      if (cancelled) return;
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, 150 - elapsed);
-      swapTimer = setTimeout(() => {
-        if (cancelled) return;
-        setActiveBgIndex(nextIndex);
-        // Pause outgoing background video once the 600ms CSS fade completes
-        pauseTimer = setTimeout(() => {
-          if (!cancelled && prevVideo) {
-            prevVideo.pause();
-          }
-        }, 650);
-
-        // Optionally prefetch one likely next teaser after current is ready
-        const curIdx = filteredProjects.findIndex(p => p.id === activeTeaser.id);
-        const nextProj = filteredProjects[(curIdx + 1) % filteredProjects.length];
-        if (nextProj?.teaserUrl && typeof document !== 'undefined') {
-          const link = document.createElement('link');
-          link.rel = 'prefetch';
-          link.as = 'video';
-          link.href = nextProj.teaserUrl;
-          document.head.appendChild(link);
-          setTimeout(() => {
-            if (link.parentNode) link.parentNode.removeChild(link);
-          }, 6000);
-        }
-      }, remaining);
-    };
-
-    nextVideo.src = activeTeaser.teaserUrl;
-    nextVideo.poster = getPoster(activeTeaser);
-    nextVideo.load();
-
-    if (!selectedProject && !isTabHidden) {
-      nextVideo.play().catch(() => {});
-    }
-
-    if (nextVideo.readyState >= 3) {
-      swap();
+  const registerPoolVideoRef = useCallback((id: string, el: HTMLVideoElement | null) => {
+    if (el) {
+      poolVideoRefs.current[id] = el;
     } else {
-      nextVideo.addEventListener('canplay', swap, { once: true });
+      delete poolVideoRefs.current[id];
     }
+  }, []);
+
+  const markPosterLoaded = useCallback((url: string) => {
+    if (!url) return;
+    setLoadedPosters((prev) => {
+      if (prev.has(url)) return prev;
+      const next = new Set(prev);
+      next.add(url);
+      return next;
+    });
+  }, []);
+
+  const handleFirstFrame = useCallback((projectId: string) => {
+    setVideoPool((prev) => {
+      let changed = false;
+      const next = prev.map((entry) => {
+        if (entry.project.id === projectId && !entry.hasFirstFrame) {
+          changed = true;
+          return { ...entry, hasFirstFrame: true };
+        }
+        return entry;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
+  // Track pointer hover capability dynamically (supports desktop mice/trackpads and tablets with hover input)
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mqlHover = window.matchMedia('(hover: hover)');
+    const mqlAnyHover = window.matchMedia('(any-hover: hover)');
+    const updateHoverSupport = () => {
+      setSupportsHover(mqlHover.matches || mqlAnyHover.matches);
+    };
+    updateHoverSupport();
+    mqlHover.addEventListener?.('change', updateHoverSupport);
+    mqlAnyHover.addEventListener?.('change', updateHoverSupport);
+    return () => {
+      mqlHover.removeEventListener?.('change', updateHoverSupport);
+      mqlAnyHover.removeEventListener?.('change', updateHoverSupport);
+    };
+  }, []);
+
+  // Preload project posters on desktop/tablet so switching shows each poster immediately
+  useEffect(() => {
+    if (!isDesktop || typeof Image === 'undefined') return;
+    let cancelled = false;
+
+    const orderedIds = Array.from(new Set([...SELECTED_PROJECT_ORDER, ...ARCHIVE_PROJECT_ORDER]));
+    const orderedProjects = orderedIds
+      .map((id) => PROJECTS.find((p) => p.id === id))
+      .filter((p): p is Project => Boolean(p));
+
+    orderedProjects.forEach((project) => {
+      const url = getPoster(project);
+      if (!url) return;
+      const img = new Image();
+      img.src = url;
+      const handleReady = () => {
+        if (!cancelled) markPosterLoaded(url);
+      };
+      if (img.complete && img.naturalWidth > 0) {
+        if (typeof img.decode === 'function') {
+          img.decode().then(handleReady).catch(handleReady);
+        } else {
+          handleReady();
+        }
+      } else {
+        img.onload = () => {
+          if (typeof img.decode === 'function') {
+            img.decode().then(handleReady).catch(handleReady);
+          } else {
+            handleReady();
+          }
+        };
+      }
+    });
 
     return () => {
       cancelled = true;
-      if (swapTimer) clearTimeout(swapTimer);
-      if (pauseTimer) clearTimeout(pauseTimer);
-      nextVideo.removeEventListener('canplay', swap);
     };
-  }, [activeTeaser, isDesktop, filteredProjects, selectedProject, isTabHidden]);
+  }, [isDesktop, markPosterLoaded]);
 
-  // Pause desktop background videos while a full project film is open or tab is hidden; keep playing behind About
+  // Immediately switch preview on desktop/tablet hover with latest-hover-wins semantics & LRU caching
+  const activatePreview = useCallback(
+    (project: Project) => {
+      latestPreviewIdRef.current = project.id;
+      setActiveTeaser((prev) => (prev.id === project.id ? prev : project));
+
+      (Object.entries(poolVideoRefs.current) as Array<[string, HTMLVideoElement | null]>).forEach(([id, el]) => {
+        if (!el) return;
+        if (id === project.id) {
+          if (!selectedProject && !isTabHidden && el.paused) {
+            el.play().catch(() => {});
+          }
+        } else if (!el.paused) {
+          el.pause();
+        }
+      });
+
+      setVideoPool((prev) => {
+        const existing = prev.find((item) => item.project.id === project.id);
+        const retained = prev.filter(
+          (item) => item.project.id !== project.id && item.hasFirstFrame
+        );
+        const nextEntry: PreviewPoolEntry = existing
+          ? existing
+          : { project, hasFirstFrame: false };
+        const next = [...retained, nextEntry];
+        if (next.length > MAX_CACHED_VIDEOS) {
+          return next.slice(next.length - MAX_CACHED_VIDEOS);
+        }
+        return next;
+      });
+    },
+    [selectedProject, isTabHidden]
+  );
+
+  // Keep video pool synchronized if activeTeaser changes outside hover (e.g., viewport resize)
   useEffect(() => {
     if (!isDesktop) return;
-    const currentBgVideo = activeBgIndex === 0 ? bgVideoRef0.current : bgVideoRef1.current;
+    latestPreviewIdRef.current = activeTeaser.id;
+    setVideoPool((prev) => {
+      if (prev.some((item) => item.project.id === activeTeaser.id)) return prev;
+      const retained = prev.filter((item) => item.hasFirstFrame);
+      const next = [...retained, { project: activeTeaser, hasFirstFrame: false }];
+      if (next.length > MAX_CACHED_VIDEOS) {
+        return next.slice(next.length - MAX_CACHED_VIDEOS);
+      }
+      return next;
+    });
+  }, [isDesktop, activeTeaser]);
 
-    if (selectedProject || isTabHidden) {
-      bgVideoRef0.current?.pause();
-      bgVideoRef1.current?.pause();
-    } else {
-      currentBgVideo?.play().catch(() => {});
+  // Clear hoveredProject if switching back to Selected while hovering an Archive-only row
+  useEffect(() => {
+    if (activeCategory === 'Selected' && hoveredProject && !hoveredProject.tags.includes('Selected')) {
+      setHoveredProject(null);
     }
-  }, [selectedProject, isTabHidden, isDesktop, activeBgIndex]);
+  }, [activeCategory, hoveredProject]);
+
+  const activePosterUrl = getPoster(activeTeaser);
+  const isActivePosterReady = Boolean(activePosterUrl && loadedPosters.has(activePosterUrl));
+  const activePoolEntry = videoPool.find((item) => item.project.id === activeTeaser.id);
+  const isActiveVideoReady = Boolean(activePoolEntry?.hasFirstFrame);
+  const isActivePreviewReady = isActivePosterReady || isActiveVideoReady;
+
+  useEffect(() => {
+    if (isActivePreviewReady) {
+      setLastFilledProject((prev) => (prev.id === activeTeaser.id ? prev : activeTeaser));
+    }
+  }, [isActivePreviewReady, activeTeaser]);
 
   // Mobile video playback for active swipe index; keep playing behind About
   useEffect(() => {
@@ -1214,7 +1481,7 @@ function MainView() {
           style={{ paddingLeft: selectedLeft ? `${selectedLeft}px` : undefined }}
         >
           <div className={`space-y-0 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-            <div className="space-y-0">
+            <div className="space-y-0 -mt-[2.2px]">
               {desktopProjects.map((project) => {
                 const isHovered = hoveredProject?.id === project.id;
                 const isSelected = project.tags.includes('Selected');
@@ -1222,21 +1489,41 @@ function MainView() {
 
                 if (isSelected) {
                   return (
-                    <div key={project.id} className="mb-[4.4px]">
+                    <div key={project.id}>
                       <Link
                         to={`/work/${project.id}`}
                         state={{ from: location.pathname }}
-                        onMouseEnter={() => {
-                          setHoveredProject(project);
-                          setActiveTeaser(project);
+                        onTouchStart={() => {
+                          lastTouchTimeRef.current = Date.now();
                         }}
-                        onMouseLeave={() => setHoveredProject(null)}
+                        onPointerEnter={(e) => {
+                          if (e.pointerType === 'touch') {
+                            lastTouchTimeRef.current = Date.now();
+                            return;
+                          }
+                          if (!supportsHover) return;
+                          setHoveredProject(project);
+                          activatePreview(project);
+                        }}
+                        onMouseEnter={() => {
+                          if (!supportsHover || Date.now() - lastTouchTimeRef.current < 800) return;
+                          setHoveredProject(project);
+                          activatePreview(project);
+                        }}
+                        onPointerLeave={() => {
+                          setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                        }}
                         onFocus={() => {
                           setHoveredProject(project);
-                          setActiveTeaser(project);
+                          activatePreview(project);
                         }}
-                        onBlur={() => setHoveredProject(null)}
-                        className="group grid grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline cursor-pointer no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2"
+                        onBlur={() => {
+                          setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                        }}
+                        className="group grid w-full grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline py-[2.2px] cursor-pointer no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2"
                       >
                         <span
                           className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
@@ -1263,7 +1550,6 @@ function MainView() {
                     initial={false}
                     animate={{
                       height: isExpanded ? 'auto' : 0,
-                      marginBottom: isExpanded ? 4.4 : 0,
                       opacity: isExpanded ? 1 : 0,
                     }}
                     transition={
@@ -1276,26 +1562,46 @@ function MainView() {
                     }
                     style={{ overflow: 'hidden' }}
                     inert={!isExpanded ? true : undefined}
-                    className="will-change-[height,opacity,margin]"
+                    className="will-change-[height,opacity]"
                   >
                     <Link
                       to={`/work/${project.id}`}
                       state={{ from: location.pathname }}
                       tabIndex={isExpanded ? 0 : -1}
                       aria-hidden={!isExpanded}
-                      onMouseEnter={() => {
-                        if (!isExpanded) return;
-                        setHoveredProject(project);
-                        setActiveTeaser(project);
+                      onTouchStart={() => {
+                        lastTouchTimeRef.current = Date.now();
                       }}
-                      onMouseLeave={() => setHoveredProject(null)}
+                      onPointerEnter={(e) => {
+                        if (!isExpanded) return;
+                        if (e.pointerType === 'touch') {
+                          lastTouchTimeRef.current = Date.now();
+                          return;
+                        }
+                        if (!supportsHover) return;
+                        setHoveredProject(project);
+                        activatePreview(project);
+                      }}
+                      onMouseEnter={() => {
+                        if (!isExpanded || !supportsHover || Date.now() - lastTouchTimeRef.current < 800) return;
+                        setHoveredProject(project);
+                        activatePreview(project);
+                      }}
+                      onPointerLeave={() => {
+                        setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                      }}
                       onFocus={() => {
                         if (!isExpanded) return;
                         setHoveredProject(project);
-                        setActiveTeaser(project);
+                        activatePreview(project);
                       }}
-                      onBlur={() => setHoveredProject(null)}
-                      className={`group grid grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2 ${
+                      onBlur={() => {
+                        setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                      }}
+                      className={`group grid w-full grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline py-[2.2px] no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2 ${
                         isExpanded ? 'cursor-pointer pointer-events-auto' : 'cursor-default pointer-events-none'
                       }`}
                     >
@@ -1414,29 +1720,62 @@ function MainView() {
         </div>
       </main>
 
-      {/* Desktop Background Video */}
+      {/* Desktop Background Preview (Immediate Poster -> Ready Video/GIF, LRU Cached, Zero Crossfade) */}
       {isDesktop && (
-        <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden' }} className="hidden md:block z-0 pointer-events-none">
-          {[bgVideoRef0, bgVideoRef1].map((ref, i) => (
-            <video
-              key={i}
-              ref={ref}
-              muted
-              loop
-              playsInline
-              poster={getPoster(activeTeaser)}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                opacity: i === activeBgIndex ? 0.75 : 0,
-                transition: 'opacity 0.6s ease',
-              }}
-            />
-          ))}
-          <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent opacity-50" />
+        <div
+          style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden' }}
+          className="hidden md:block z-0 pointer-events-none bg-bg"
+        >
+          <div className="relative w-full h-full opacity-75">
+            {/* Retain previous filled poster underneath only while a new project's poster & video are both still loading */}
+            {!isActivePreviewReady && lastFilledProject.id !== activeTeaser.id && getPoster(lastFilledProject) && (
+              <img
+                src={getPoster(lastFilledProject)}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover select-none"
+                style={{ zIndex: 0 }}
+              />
+            )}
+
+            {/* Active project's poster: shown immediately on hover until video/GIF first frame is ready */}
+            {activePosterUrl && (
+              <img
+                key={activePosterUrl}
+                src={activePosterUrl}
+                alt=""
+                aria-hidden="true"
+                onLoad={() => markPosterLoaded(activePosterUrl)}
+                className="absolute inset-0 w-full h-full object-cover select-none"
+                style={{
+                  zIndex: 1,
+                  opacity: isActivePosterReady || lastFilledProject.id === activeTeaser.id ? 1 : 0,
+                }}
+              />
+            )}
+
+            {/* Pooled cached preview videos/GIFs (latest hovered plays & displays immediately once first frame is ready) */}
+            {videoPool.map((slot) => {
+              const isCurrent = slot.project.id === activeTeaser.id;
+              const isFallback =
+                !isCurrent && !isActivePreviewReady && slot.project.id === lastFilledProject.id;
+              const isVisible = (isCurrent || isFallback) && slot.hasFirstFrame;
+              return (
+                <PooledPreviewMedia
+                  key={slot.project.id}
+                  project={slot.project}
+                  isCurrent={isCurrent}
+                  isVisible={isVisible}
+                  zIndex={isCurrent ? 3 : 2}
+                  shouldPlay={!selectedProject && !isTabHidden}
+                  latestPreviewIdRef={latestPreviewIdRef}
+                  onFirstFrame={handleFirstFrame}
+                  registerVideoRef={registerPoolVideoRef}
+                />
+              );
+            })}
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-bg via-transparent to-transparent opacity-50 pointer-events-none" />
         </div>
       )}
 
