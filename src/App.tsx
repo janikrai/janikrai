@@ -2840,6 +2840,9 @@ function MainView() {
                         >
                           Alfredo (Canada)
                         </a>
+                        <span className="inline-block w-fit">
+                          Immigrant (Benelux, Scandinavia &amp; Brazil)
+                        </span>
                         <a
                           href="mailto:amanda@mistnoir.tv"
                           className="hover:text-neutral-500 transition-colors inline-block w-fit"
