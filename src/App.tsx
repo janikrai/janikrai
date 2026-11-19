@@ -4,6 +4,7 @@ import { useNavigate, useParams, useLocation, Routes, Route, Navigate, Link } fr
 import { Helmet } from 'react-helmet-async';
 import { PROJECTS, CATEGORIES, SELECTED_PROJECT_ORDER, ARCHIVE_PROJECT_ORDER } from './constants';
 import { Project, Category } from './types';
+import { getRouteMetadata, SITE_NAME } from './seo';
 
 const StrikeButton = forwardRef<HTMLButtonElement, { children: React.ReactNode, onClick?: () => void, className?: string, disabled?: boolean, [key: string]: any }>(
   ({ children, onClick, className, disabled, ...rest }, ref) => {
@@ -24,7 +25,7 @@ StrikeButton.displayName = 'StrikeButton';
 
 const getPoster = (project: Project) => project.stills?.[0] ?? '';
 
-const MAX_CACHED_VIDEOS = 8;
+const MAX_CACHED_VIDEOS = 16;
 
 const isImageTeaser = (url: string) => /\.(gif|webp|png|jpe?g)(\?.*)?$/i.test(url);
 
@@ -40,6 +41,7 @@ function PooledPreviewMedia({
   zIndex,
   shouldPlay,
   latestPreviewIdRef,
+  teaserPositionsRef,
   onFirstFrame,
   registerVideoRef,
 }: {
@@ -50,12 +52,15 @@ function PooledPreviewMedia({
   zIndex: number;
   shouldPlay: boolean;
   latestPreviewIdRef: React.MutableRefObject<string>;
+  teaserPositionsRef: React.MutableRefObject<Record<string, number>>;
   onFirstFrame: (projectId: string) => void;
   registerVideoRef: (projectId: string, el: HTMLVideoElement | null) => void;
 }) {
   const videoElRef = useRef<HTMLVideoElement | null>(null);
   const reportedRef = useRef(false);
+  const pendingSeekRef = useRef<number | null>(null);
   const loadedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seekSafetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const teaserUrl = project.teaserUrl || '';
   const isGifOrImage = isImageTeaser(teaserUrl);
 
@@ -64,6 +69,37 @@ function PooledPreviewMedia({
     reportedRef.current = true;
     onFirstFrame(project.id);
   }, [onFirstFrame, project.id]);
+
+  const scheduleFrameReveal = useCallback(
+    (el: HTMLVideoElement) => {
+      if (reportedRef.current) return;
+      if (!shouldPlay) {
+        reportFirstFrame();
+        return;
+      }
+      const v = el as HTMLVideoElement & {
+        requestVideoFrameCallback?: (cb: () => void) => number;
+      };
+      if (typeof v.requestVideoFrameCallback === 'function') {
+        v.requestVideoFrameCallback(() => {
+          if (latestPreviewIdRef.current === project.id && pendingSeekRef.current === null) {
+            reportFirstFrame();
+          }
+        });
+      }
+      if (loadedTimerRef.current) clearTimeout(loadedTimerRef.current);
+      loadedTimerRef.current = setTimeout(() => {
+        if (
+          el.readyState >= 2 &&
+          latestPreviewIdRef.current === project.id &&
+          pendingSeekRef.current === null
+        ) {
+          reportFirstFrame();
+        }
+      }, 50);
+    },
+    [shouldPlay, latestPreviewIdRef, project.id, reportFirstFrame]
+  );
 
   useEffect(() => {
     if (isGifOrImage || !teaserUrl) return;
@@ -75,8 +111,20 @@ function PooledPreviewMedia({
         clearTimeout(loadedTimerRef.current);
         loadedTimerRef.current = null;
       }
+      if (seekSafetyTimerRef.current) {
+        clearTimeout(seekSafetyTimerRef.current);
+        seekSafetyTimerRef.current = null;
+      }
       registerVideoRef(project.id, null);
       if (el) {
+        if (
+          pendingSeekRef.current === null &&
+          el.readyState >= 1 &&
+          el.currentTime > 0 &&
+          !Number.isNaN(el.currentTime)
+        ) {
+          teaserPositionsRef.current[project.id] = el.currentTime;
+        }
         el.pause();
         // Only strip src on true DOM removal, never during React StrictMode mount-test cleanup
         queueMicrotask(() => {
@@ -87,7 +135,7 @@ function PooledPreviewMedia({
         });
       }
     };
-  }, [isGifOrImage, teaserUrl, project.id, registerVideoRef]);
+  }, [isGifOrImage, teaserUrl, project.id, registerVideoRef, teaserPositionsRef]);
 
   useEffect(() => {
     if (isGifOrImage || !teaserUrl) return;
@@ -95,16 +143,53 @@ function PooledPreviewMedia({
     if (!el) return;
 
     if (shouldPlay && isCurrent && latestPreviewIdRef.current === project.id) {
-      if (el.paused) {
-        el.play().catch(() => {});
+      const savedTime = teaserPositionsRef.current[project.id] ?? 0;
+      if (
+        savedTime > 0.05 &&
+        el.readyState >= 1 &&
+        pendingSeekRef.current === null &&
+        Math.abs(el.currentTime - savedTime) > 0.35
+      ) {
+        const target =
+          Number.isFinite(el.duration) && el.duration > 0
+            ? Math.min(savedTime, Math.max(0, el.duration - 0.05))
+            : savedTime;
+        pendingSeekRef.current = target;
+        el.currentTime = target;
+        return;
       }
-      if (el.readyState >= 2) {
-        reportFirstFrame();
+
+      if (pendingSeekRef.current === null) {
+        if (el.paused) {
+          el.play().catch(() => {});
+        }
+        if (el.readyState >= 2) {
+          reportFirstFrame();
+        }
       }
-    } else if (!el.paused) {
-      el.pause();
+    } else {
+      if (
+        pendingSeekRef.current === null &&
+        el.readyState >= 1 &&
+        el.currentTime > 0 &&
+        !Number.isNaN(el.currentTime)
+      ) {
+        teaserPositionsRef.current[project.id] = el.currentTime;
+      }
+      if (!el.paused) {
+        el.pause();
+      }
     }
-  }, [isGifOrImage, teaserUrl, shouldPlay, isCurrent, project.id, latestPreviewIdRef, reportFirstFrame]);
+  }, [
+    isGifOrImage,
+    teaserUrl,
+    shouldPlay,
+    isCurrent,
+    project.id,
+    latestPreviewIdRef,
+    teaserPositionsRef,
+    reportFirstFrame,
+  ]);
 
   if (!teaserUrl) {
     return null;
@@ -139,36 +224,76 @@ function PooledPreviewMedia({
       loop
       playsInline
       preload="auto"
+      onLoadedMetadata={(e) => {
+        const el = e.currentTarget;
+        const savedTime = teaserPositionsRef.current[project.id] ?? 0;
+        if (savedTime > 0.05) {
+          const target =
+            Number.isFinite(el.duration) && el.duration > 0
+              ? Math.min(savedTime, Math.max(0, el.duration - 0.05))
+              : savedTime;
+          if (target > 0.05 && Math.abs(el.currentTime - target) > 0.15) {
+            pendingSeekRef.current = target;
+            el.currentTime = target;
+            if (seekSafetyTimerRef.current) clearTimeout(seekSafetyTimerRef.current);
+            seekSafetyTimerRef.current = setTimeout(() => {
+              if (pendingSeekRef.current !== null) {
+                pendingSeekRef.current = null;
+                if (latestPreviewIdRef.current === project.id && shouldPlay && el.paused) {
+                  el.play().catch(() => {});
+                }
+                if (el.readyState >= 2) {
+                  reportFirstFrame();
+                }
+              }
+            }, 1500);
+          }
+        }
+      }}
+      onSeeked={(e) => {
+        const el = e.currentTarget;
+        if (seekSafetyTimerRef.current) {
+          clearTimeout(seekSafetyTimerRef.current);
+          seekSafetyTimerRef.current = null;
+        }
+        pendingSeekRef.current = null;
+        if (latestPreviewIdRef.current !== project.id) {
+          el.pause();
+          return;
+        }
+        if (shouldPlay && el.paused) {
+          el.play().catch(() => {});
+        }
+        if (el.readyState >= 2) {
+          scheduleFrameReveal(el);
+        }
+      }}
       onLoadedData={(e) => {
         const el = e.currentTarget;
         if (latestPreviewIdRef.current !== project.id) {
           el.pause();
           return;
         }
+        if (pendingSeekRef.current !== null) {
+          return;
+        }
+        const savedTime = teaserPositionsRef.current[project.id] ?? 0;
+        if (savedTime > 0.05) {
+          const target =
+            Number.isFinite(el.duration) && el.duration > 0
+              ? Math.min(savedTime, Math.max(0, el.duration - 0.05))
+              : savedTime;
+          if (target > 0.05 && Math.abs(el.currentTime - target) > 0.25) {
+            pendingSeekRef.current = target;
+            el.currentTime = target;
+            return;
+          }
+        }
         if (shouldPlay) {
           el.play().catch(() => {});
         }
         if (el.readyState >= 2) {
-          if (!shouldPlay) {
-            reportFirstFrame();
-          } else {
-            const v = el as HTMLVideoElement & {
-              requestVideoFrameCallback?: (cb: () => void) => number;
-            };
-            if (typeof v.requestVideoFrameCallback === 'function') {
-              v.requestVideoFrameCallback(() => {
-                if (latestPreviewIdRef.current === project.id) {
-                  reportFirstFrame();
-                }
-              });
-            }
-            if (loadedTimerRef.current) clearTimeout(loadedTimerRef.current);
-            loadedTimerRef.current = setTimeout(() => {
-              if (el.readyState >= 2 && latestPreviewIdRef.current === project.id) {
-                reportFirstFrame();
-              }
-            }, 50);
-          }
+          scheduleFrameReveal(el);
         }
       }}
       onCanPlay={(e) => {
@@ -177,16 +302,44 @@ function PooledPreviewMedia({
           el.pause();
           return;
         }
+        if (pendingSeekRef.current !== null) {
+          return;
+        }
         if (shouldPlay && el.paused) {
           el.play().catch(() => {});
         }
       }}
       onPlaying={(e) => {
+        if (pendingSeekRef.current !== null) {
+          return;
+        }
         if (latestPreviewIdRef.current !== project.id) {
           e.currentTarget.pause();
           return;
         }
         reportFirstFrame();
+      }}
+      onTimeUpdate={(e) => {
+        const el = e.currentTarget;
+        if (
+          pendingSeekRef.current === null &&
+          el.readyState >= 1 &&
+          el.currentTime > 0 &&
+          !Number.isNaN(el.currentTime)
+        ) {
+          teaserPositionsRef.current[project.id] = el.currentTime;
+        }
+      }}
+      onPause={(e) => {
+        const el = e.currentTarget;
+        if (
+          pendingSeekRef.current === null &&
+          el.readyState >= 1 &&
+          el.currentTime > 0 &&
+          !Number.isNaN(el.currentTime)
+        ) {
+          teaserPositionsRef.current[project.id] = el.currentTime;
+        }
       }}
       style={{
         position: 'absolute',
@@ -213,18 +366,21 @@ function ArchiveTile({
   project,
   isOverlayOpen,
   isTabHidden,
-  isDesktop
+  isDesktop,
+  teaserPositionsRef,
 }: {
   key?: React.Key;
   project: Project;
   isOverlayOpen: boolean;
   isTabHidden: boolean;
   isDesktop: boolean;
+  teaserPositionsRef: React.MutableRefObject<Record<string, number>>;
 }) {
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isInView, setIsInView] = useState(false);
   const containerRef = useRef<HTMLAnchorElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const pendingSeekRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (isDesktop) return;
@@ -259,11 +415,114 @@ function ArchiveTile({
         video.src = project.teaserUrl;
         video.load();
       }
-      video.play().catch(() => {});
+      if (!pendingSeekRef.current) {
+        video.play().catch(() => {});
+      }
     } else {
+      if (!pendingSeekRef.current && video.readyState >= 1 && video.currentTime > 0 && !Number.isNaN(video.currentTime)) {
+        teaserPositionsRef.current[project.id] = video.currentTime;
+      }
       video.pause();
     }
-  }, [isInView, isOverlayOpen, isTabHidden, isDesktop, project.teaserUrl]);
+  }, [isInView, isOverlayOpen, isTabHidden, isDesktop, project.id, project.teaserUrl, teaserPositionsRef]);
+
+  const posterUrl = getPoster(project);
+  const tileContent = (
+    <>
+      {posterUrl && (
+        <img
+          src={posterUrl}
+          alt=""
+          aria-hidden="true"
+          className='absolute inset-0 w-full h-full object-cover select-none'
+        />
+      )}
+      {!isDesktop && (
+        <video
+          ref={videoRef}
+          poster={posterUrl || undefined}
+          muted
+          loop
+          playsInline
+          preload="none"
+          onLoadedMetadata={(e) => {
+            const el = e.currentTarget;
+            const saved = teaserPositionsRef.current[project.id] ?? 0;
+            if (saved > 0.05) {
+              const target =
+                Number.isFinite(el.duration) && el.duration > 0
+                  ? Math.min(saved, Math.max(0, el.duration - 0.05))
+                  : saved;
+              if (target > 0.05 && Math.abs(el.currentTime - target) > 0.15) {
+                pendingSeekRef.current = true;
+                el.currentTime = target;
+              }
+            }
+          }}
+          onSeeked={(e) => {
+            pendingSeekRef.current = false;
+            const el = e.currentTarget;
+            if (!isDesktop && isInView && !isOverlayOpen && !isTabHidden) {
+              el.play().catch(() => {});
+            }
+            setIsVideoReady(true);
+          }}
+          onCanPlay={() => {
+            if (!pendingSeekRef.current) setIsVideoReady(true);
+          }}
+          onPlaying={() => {
+            if (!pendingSeekRef.current) setIsVideoReady(true);
+          }}
+          onTimeUpdate={(e) => {
+            const el = e.currentTarget;
+            if (!pendingSeekRef.current && el.readyState >= 1 && el.currentTime > 0 && !Number.isNaN(el.currentTime)) {
+              teaserPositionsRef.current[project.id] = el.currentTime;
+            }
+          }}
+          onPause={(e) => {
+            const el = e.currentTarget;
+            if (!pendingSeekRef.current && el.readyState >= 1 && el.currentTime > 0 && !Number.isNaN(el.currentTime)) {
+              teaserPositionsRef.current[project.id] = el.currentTime;
+            }
+          }}
+          className='absolute inset-0 w-full h-full object-cover transition-opacity duration-700 pointer-events-none'
+          style={{ opacity: isVideoReady ? 1 : 0 }}
+        />
+      )}
+      <div className='absolute inset-0 bg-black/55 pointer-events-none' />
+      <div className='absolute inset-0 flex flex-col items-start justify-end p-2 pointer-events-none'>
+        <p className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold opacity-75 mb-0.5'>
+          {project.client}
+          {project.previewOnly && (
+            <>
+              {' '}
+              <span className='normal-case italic text-[0.85em] align-baseline'>(coming soon)</span>
+            </>
+          )}
+        </p>
+        <h3 className='text-[15.6px] leading-[22px] font-main text-ink'>{project.name}</h3>
+      </div>
+    </>
+  );
+
+  if (project.previewOnly) {
+    return (
+      <div
+        ref={containerRef as React.RefObject<HTMLDivElement>}
+        tabIndex={0}
+        onClick={(e) => e.preventDefault()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+          }
+        }}
+        className='relative aspect-video cursor-default overflow-hidden block text-inherit focus:outline-none focus:ring-1 focus:ring-ink/40'
+        aria-label={`${project.name} for ${project.client} (coming soon)`}
+      >
+        {tileContent}
+      </div>
+    );
+  }
 
   return (
     <Link
@@ -273,31 +532,7 @@ function ArchiveTile({
       className='relative aspect-video cursor-pointer overflow-hidden block text-inherit no-underline focus:outline-none focus:ring-1 focus:ring-ink/40'
       aria-label={`View project: ${project.name} for ${project.client}`}
     >
-      <img
-        src={project.stills?.[0] ?? project.teaserUrl}
-        alt=""
-        aria-hidden="true"
-        className='absolute inset-0 w-full h-full object-cover select-none'
-      />
-      {!isDesktop && (
-        <video
-          ref={videoRef}
-          poster={project.stills?.[0] ?? ''}
-          muted
-          loop
-          playsInline
-          preload="none"
-          onCanPlay={() => setIsVideoReady(true)}
-          onPlaying={() => setIsVideoReady(true)}
-          className='absolute inset-0 w-full h-full object-cover transition-opacity duration-700 pointer-events-none'
-          style={{ opacity: isVideoReady ? 1 : 0 }}
-        />
-      )}
-      <div className='absolute inset-0 bg-black/55 pointer-events-none' />
-      <div className='absolute inset-0 flex flex-col items-start justify-end p-2 pointer-events-none'>
-        <p className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold opacity-75 mb-0.5'>{project.client}</p>
-        <h3 className='text-[15.6px] leading-[22px] font-main text-ink'>{project.name}</h3>
-      </div>
+      {tileContent}
     </Link>
   );
 }
@@ -395,7 +630,11 @@ function MainView() {
   }, [location.pathname, location.state, projectId]);
 
   const isAboutOpen = location.pathname === '/info';
-  const selectedProject = useMemo(() => PROJECTS.find(p => p.id === projectId) || null, [projectId]);
+  const matchedProject = useMemo(() => PROJECTS.find(p => p.id === projectId) || null, [projectId]);
+  const selectedProject = useMemo(
+    () => (matchedProject && !matchedProject.previewOnly ? matchedProject : null),
+    [matchedProject]
+  );
   const isOverlayOpen = Boolean(selectedProject || isAboutOpen);
 
   const filteredProjects = useMemo(() => {
@@ -405,11 +644,16 @@ function MainView() {
       .filter((p): p is Project => Boolean(p));
   }, [activeCategory]);
 
-  const currentIndex = useMemo(
-    () => selectedProject ? filteredProjects.findIndex(p => p.id === selectedProject.id) : -1,
-    [selectedProject, filteredProjects]
+  const playableProjects = useMemo(
+    () => filteredProjects.filter(p => !p.previewOnly),
+    [filteredProjects]
   );
-  const totalInCollection = filteredProjects.length;
+
+  const currentIndex = useMemo(
+    () => selectedProject ? playableProjects.findIndex(p => p.id === selectedProject.id) : -1,
+    [selectedProject, playableProjects]
+  );
+  const totalInCollection = playableProjects.length;
   const hasMultipleProjects = totalInCollection > 1;
 
   const prevIndex = useMemo(() => {
@@ -422,8 +666,8 @@ function MainView() {
     return (currentIndex + 1) % totalInCollection;
   }, [hasMultipleProjects, currentIndex, totalInCollection]);
 
-  const prevProject = prevIndex >= 0 ? filteredProjects[prevIndex] : null;
-  const nextProject = nextIndex >= 0 ? filteredProjects[nextIndex] : null;
+  const prevProject = prevIndex >= 0 ? playableProjects[prevIndex] : null;
+  const nextProject = nextIndex >= 0 ? playableProjects[nextIndex] : null;
   const hasPrev = Boolean(prevProject);
   const hasNext = Boolean(nextProject);
 
@@ -536,6 +780,7 @@ function MainView() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const latestPreviewIdRef = useRef<string>(PROJECTS[0].id);
+  const teaserPositionsRef = useRef<Record<string, number>>({});
   const lastTouchTimeRef = useRef<number>(0);
   const poolVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const [loadedPosters, setLoadedPosters] = useState<Set<string>>(() => new Set());
@@ -645,8 +890,13 @@ function MainView() {
           if (!selectedProject && !isTabHidden && el.paused) {
             el.play().catch(() => {});
           }
-        } else if (!el.paused) {
-          el.pause();
+        } else {
+          if (el.readyState >= 1 && el.currentTime > 0 && !Number.isNaN(el.currentTime)) {
+            teaserPositionsRef.current[id] = el.currentTime;
+          }
+          if (!el.paused) {
+            el.pause();
+          }
         }
       });
 
@@ -712,8 +962,26 @@ function MainView() {
         const isCurrentActive = i === mobileIndex;
         const shouldPlay = isCurrentActive && !selectedProject && !isTabHidden && (activeCategory === 'Selected' || isAboutOpen);
         if (shouldPlay) {
-          videoEl.play().catch(() => {});
+          const saved = teaserPositionsRef.current[project.id] ?? 0;
+          if (saved > 0.05 && videoEl.readyState >= 1 && Math.abs(videoEl.currentTime - saved) > 0.35) {
+            const target =
+              Number.isFinite(videoEl.duration) && videoEl.duration > 0
+                ? Math.min(saved, Math.max(0, videoEl.duration - 0.05))
+                : saved;
+            videoEl.dataset.pendingSeek = '1';
+            videoEl.currentTime = target;
+          } else if (videoEl.dataset.pendingSeek !== '1') {
+            videoEl.play().catch(() => {});
+          }
         } else {
+          if (
+            videoEl.dataset.pendingSeek !== '1' &&
+            videoEl.readyState >= 1 &&
+            videoEl.currentTime > 0 &&
+            !Number.isNaN(videoEl.currentTime)
+          ) {
+            teaserPositionsRef.current[project.id] = videoEl.currentTime;
+          }
           videoEl.pause();
         }
       }
@@ -1295,80 +1563,43 @@ function MainView() {
   }, [isCreditsOpen]);
 
   if (projectId && !selectedProject) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={cameFrom === '/archive' ? '/archive' : '/'} replace />;
   }
+
+  const routeMeta = getRouteMetadata(
+    selectedProject
+      ? `/work/${selectedProject.id}`
+      : location.pathname === '/archive'
+      ? '/archive'
+      : isAboutOpen
+      ? '/info'
+      : '/'
+  );
 
   return (
     <div className="relative min-h-screen w-full bg-bg text-ink selection:bg-ink selection:text-bg">
       <Helmet>
-        {selectedProject ? (
-          <>
-            <title>{selectedProject.name} — Janik Rai</title>
-            <meta name="description" content={`${selectedProject.name} for ${selectedProject.client}. Directed by Janik Rai.`} />
-            <meta property="og:title" content={`${selectedProject.name} — Janik Rai`} />
-            <meta property="og:description" content={`${selectedProject.name} for ${selectedProject.client}. Directed by Janik Rai.`} />
-            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
-            <meta property="og:image:width" content="414" />
-            <meta property="og:image:height" content="414" />
-            <meta property="og:url" content={`https://janikrai.com/work/${selectedProject.id}`} />
-            <meta property="og:type" content="video.other" />
-            <meta name="twitter:card" content="summary_large_image" />
-            <meta name="twitter:title" content={`${selectedProject.name} — Janik Rai`} />
-            <meta name="twitter:description" content={`${selectedProject.name} for ${selectedProject.client}. Directed by Janik Rai.`} />
-            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
-            <link rel="canonical" href={`https://janikrai.com/work/${selectedProject.id}`} />
-          </>
-        ) : location.pathname === '/archive' ? (
-          <>
-            <title>Archive — Janik Rai</title>
-            <meta name="description" content="Archive of commercial and narrative work directed by Janik Rai." />
-            <meta property="og:title" content="Archive — Janik Rai" />
-            <meta property="og:description" content="Archive of commercial and narrative work directed by Janik Rai." />
-            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
-            <meta property="og:image:width" content="414" />
-            <meta property="og:image:height" content="414" />
-            <meta property="og:url" content="https://janikrai.com/archive" />
-            <meta property="og:type" content="website" />
-            <meta name="twitter:card" content="summary_large_image" />
-            <meta name="twitter:title" content="Archive — Janik Rai" />
-            <meta name="twitter:description" content="Archive of commercial and narrative work directed by Janik Rai." />
-            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
-            <link rel="canonical" href="https://janikrai.com/archive" />
-          </>
-        ) : isAboutOpen ? (
-          <>
-            <title>About — Janik Rai</title>
-            <meta name="description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
-            <meta property="og:title" content="About — Janik Rai" />
-            <meta property="og:description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
-            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
-            <meta property="og:image:width" content="414" />
-            <meta property="og:image:height" content="414" />
-            <meta property="og:url" content="https://janikrai.com/info" />
-            <meta property="og:type" content="profile" />
-            <meta name="twitter:card" content="summary_large_image" />
-            <meta name="twitter:title" content="About — Janik Rai" />
-            <meta name="twitter:description" content="Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality." />
-            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
-            <link rel="canonical" href="https://janikrai.com/info" />
-          </>
-        ) : (
-          <>
-            <title>Janik Rai — Commercial Director</title>
-            <meta name="description" content="British-Canadian commercial director balancing striking imagery with a raw, human sensibility. Cinematic composition grounded in lived reality." />
-            <meta property="og:title" content="Janik Rai — Commercial Director" />
-            <meta property="og:description" content="British-Canadian commercial director balancing striking imagery with a raw, human sensibility. Cinematic composition grounded in lived reality." />
-            <meta property="og:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
-            <meta property="og:image:width" content="414" />
-            <meta property="og:image:height" content="414" />
-            <meta property="og:url" content="https://janikrai.com" />
-            <meta property="og:type" content="website" />
-            <meta name="twitter:card" content="summary_large_image" />
-            <meta name="twitter:title" content="Janik Rai — Commercial Director" />
-            <meta name="twitter:description" content="British-Canadian commercial director balancing striking imagery with a raw, human sensibility. Cinematic composition grounded in lived reality." />
-            <meta name="twitter:image" content="https://janikrai.b-cdn.net/Favicon/images.png" />
-            <link rel="canonical" href="https://janikrai.com" />
-          </>
+        <title>{routeMeta.title}</title>
+        <meta name="description" content={routeMeta.description} />
+        <link rel="canonical" href={routeMeta.canonicalUrl} />
+        <meta property="og:site_name" content={SITE_NAME} />
+        <meta property="og:type" content={routeMeta.ogType} />
+        <meta property="og:url" content={routeMeta.canonicalUrl} />
+        <meta property="og:title" content={routeMeta.title} />
+        <meta property="og:description" content={routeMeta.description} />
+        <meta property="og:image" content={routeMeta.imageUrl} />
+        <meta property="og:image:secure_url" content={routeMeta.imageUrl} />
+        <meta property="og:image:alt" content={routeMeta.imageAlt} />
+        {routeMeta.imageType && <meta property="og:image:type" content={routeMeta.imageType} />}
+        {routeMeta.imageWidth && <meta property="og:image:width" content={String(routeMeta.imageWidth)} />}
+        {routeMeta.imageHeight && <meta property="og:image:height" content={String(routeMeta.imageHeight)} />}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={routeMeta.title} />
+        <meta name="twitter:description" content={routeMeta.description} />
+        <meta name="twitter:image" content={routeMeta.imageUrl} />
+        <meta name="twitter:image:alt" content={routeMeta.imageAlt} />
+        {routeMeta.jsonLd && (
+          <script type="application/ld+json">{JSON.stringify(routeMeta.jsonLd)}</script>
         )}
       </Helmet>
 
@@ -1487,61 +1718,106 @@ function MainView() {
                 const isSelected = project.tags.includes('Selected');
                 const isExpanded = isSelected || activeCategory === 'Archive';
 
+                const rowInner = (
+                  <>
+                    <span
+                      className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
+                        isHovered ? 'opacity-100 text-ink' : 'opacity-55 group-hover:opacity-100 text-ink'
+                      }`}
+                    >
+                      {project.name}
+                    </span>
+                    <span
+                      className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
+                        isHovered ? 'opacity-75 text-ink' : 'opacity-40 group-hover:opacity-65 text-ink'
+                      }`}
+                    >
+                      {project.client}
+                      {project.previewOnly && (
+                        <>
+                          {' '}
+                          <span className='italic text-[0.85em] align-baseline'>(coming soon)</span>
+                        </>
+                      )}
+                    </span>
+                  </>
+                );
+
+                const rowInteractionProps = {
+                  onTouchStart: () => {
+                    lastTouchTimeRef.current = Date.now();
+                  },
+                  onPointerEnter: (e: React.PointerEvent) => {
+                    if (!isExpanded) return;
+                    if (e.pointerType === 'touch') {
+                      lastTouchTimeRef.current = Date.now();
+                      return;
+                    }
+                    if (!supportsHover) return;
+                    setHoveredProject(project);
+                    activatePreview(project);
+                  },
+                  onMouseEnter: () => {
+                    if (!isExpanded || !supportsHover || Date.now() - lastTouchTimeRef.current < 800) return;
+                    setHoveredProject(project);
+                    activatePreview(project);
+                  },
+                  onPointerLeave: () => {
+                    setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                  },
+                  onMouseLeave: () => {
+                    setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                  },
+                  onFocus: () => {
+                    if (!isExpanded) return;
+                    setHoveredProject(project);
+                    activatePreview(project);
+                  },
+                  onBlur: () => {
+                    setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
+                  },
+                };
+
+                const rowClassName = `group grid w-full grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline py-[2.2px] no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2 ${
+                  isExpanded
+                    ? project.previewOnly
+                      ? 'cursor-default pointer-events-auto'
+                      : 'cursor-pointer pointer-events-auto'
+                    : 'cursor-default pointer-events-none'
+                }`;
+
+                const rowElement = project.previewOnly ? (
+                  <div
+                    role="presentation"
+                    tabIndex={isExpanded ? 0 : -1}
+                    aria-hidden={!isExpanded}
+                    aria-label={`${project.name} — ${project.client} (coming soon)`}
+                    onClick={(e) => e.preventDefault()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                      }
+                    }}
+                    {...rowInteractionProps}
+                    className={rowClassName}
+                  >
+                    {rowInner}
+                  </div>
+                ) : (
+                  <Link
+                    to={`/work/${project.id}`}
+                    state={{ from: location.pathname }}
+                    tabIndex={isExpanded ? 0 : -1}
+                    aria-hidden={!isExpanded}
+                    {...rowInteractionProps}
+                    className={rowClassName}
+                  >
+                    {rowInner}
+                  </Link>
+                );
+
                 if (isSelected) {
-                  return (
-                    <div key={project.id}>
-                      <Link
-                        to={`/work/${project.id}`}
-                        state={{ from: location.pathname }}
-                        onTouchStart={() => {
-                          lastTouchTimeRef.current = Date.now();
-                        }}
-                        onPointerEnter={(e) => {
-                          if (e.pointerType === 'touch') {
-                            lastTouchTimeRef.current = Date.now();
-                            return;
-                          }
-                          if (!supportsHover) return;
-                          setHoveredProject(project);
-                          activatePreview(project);
-                        }}
-                        onMouseEnter={() => {
-                          if (!supportsHover || Date.now() - lastTouchTimeRef.current < 800) return;
-                          setHoveredProject(project);
-                          activatePreview(project);
-                        }}
-                        onPointerLeave={() => {
-                          setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
-                        }}
-                        onMouseLeave={() => {
-                          setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
-                        }}
-                        onFocus={() => {
-                          setHoveredProject(project);
-                          activatePreview(project);
-                        }}
-                        onBlur={() => {
-                          setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
-                        }}
-                        className="group grid w-full grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline py-[2.2px] cursor-pointer no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2"
-                      >
-                        <span
-                          className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
-                            isHovered ? 'opacity-100 text-ink' : 'opacity-55 group-hover:opacity-100 text-ink'
-                          }`}
-                        >
-                          {project.name}
-                        </span>
-                        <span
-                          className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
-                            isHovered ? 'opacity-75 text-ink' : 'opacity-40 group-hover:opacity-65 text-ink'
-                          }`}
-                        >
-                          {project.client}
-                        </span>
-                      </Link>
-                    </div>
-                  );
+                  return <div key={project.id}>{rowElement}</div>;
                 }
 
                 return (
@@ -1564,62 +1840,7 @@ function MainView() {
                     inert={!isExpanded ? true : undefined}
                     className="will-change-[height,opacity]"
                   >
-                    <Link
-                      to={`/work/${project.id}`}
-                      state={{ from: location.pathname }}
-                      tabIndex={isExpanded ? 0 : -1}
-                      aria-hidden={!isExpanded}
-                      onTouchStart={() => {
-                        lastTouchTimeRef.current = Date.now();
-                      }}
-                      onPointerEnter={(e) => {
-                        if (!isExpanded) return;
-                        if (e.pointerType === 'touch') {
-                          lastTouchTimeRef.current = Date.now();
-                          return;
-                        }
-                        if (!supportsHover) return;
-                        setHoveredProject(project);
-                        activatePreview(project);
-                      }}
-                      onMouseEnter={() => {
-                        if (!isExpanded || !supportsHover || Date.now() - lastTouchTimeRef.current < 800) return;
-                        setHoveredProject(project);
-                        activatePreview(project);
-                      }}
-                      onPointerLeave={() => {
-                        setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
-                      }}
-                      onMouseLeave={() => {
-                        setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
-                      }}
-                      onFocus={() => {
-                        if (!isExpanded) return;
-                        setHoveredProject(project);
-                        activatePreview(project);
-                      }}
-                      onBlur={() => {
-                        setHoveredProject((prev) => (prev?.id === project.id ? null : prev));
-                      }}
-                      className={`group grid w-full grid-cols-[185px_auto] lg:grid-cols-[200px_auto] xl:grid-cols-[215px_auto] items-baseline py-[2.2px] no-underline text-inherit leading-[17.6px] focus:outline-none focus-visible:underline underline-offset-2 ${
-                        isExpanded ? 'cursor-pointer pointer-events-auto' : 'cursor-default pointer-events-none'
-                      }`}
-                    >
-                      <span
-                        className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
-                          isHovered ? 'opacity-100 text-ink' : 'opacity-55 group-hover:opacity-100 text-ink'
-                        }`}
-                      >
-                        {project.name}
-                      </span>
-                      <span
-                        className={`text-[15.6px] leading-[17.6px] font-main whitespace-nowrap transition-opacity duration-200 ${
-                          isHovered ? 'opacity-75 text-ink' : 'opacity-40 group-hover:opacity-65 text-ink'
-                        }`}
-                      >
-                        {project.client}
-                      </span>
-                    </Link>
+                    {rowElement}
                   </motion.div>
                 );
               })}
@@ -1643,6 +1864,7 @@ function MainView() {
                     isOverlayOpen={isOverlayOpen}
                     isTabHidden={isTabHidden}
                     isDesktop={isDesktop}
+                    teaserPositionsRef={teaserPositionsRef}
                   />
                 ))}
               </div>
@@ -1658,48 +1880,129 @@ function MainView() {
               {filteredProjects.map((project, i) => {
                 const isCurrent = i === mobileIndex;
                 const isPlaying = mobilePlayingMap[project.id];
+                const posterUrl = getPoster(project);
+                const mobileLabelContent = (
+                  <>
+                    <p className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold opacity-60 mb-1'>
+                      {project.client}
+                      {project.previewOnly && (
+                        <>
+                          {' '}
+                          <span className='normal-case italic text-[0.85em] align-baseline'>(coming soon)</span>
+                        </>
+                      )}
+                    </p>
+                    <h2 className='text-[15.6px] sm:text-[17px] leading-[22px] font-main font-normal text-center text-ink'>
+                      {project.name}
+                    </h2>
+                  </>
+                );
                 return (
                   <div
                     key={project.id}
                     className='absolute inset-0 transition-opacity duration-500'
                     style={{ opacity: isCurrent ? 1 : 0, pointerEvents: isCurrent ? 'auto' : 'none' }}
                   >
-                    <img
-                      src={getPoster(project)}
-                      alt=""
-                      aria-hidden="true"
-                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
-                        isPlaying ? 'opacity-0' : 'opacity-75'
-                      }`}
-                    />
+                    {posterUrl && (
+                      <img
+                        src={posterUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
+                          isPlaying ? 'opacity-0' : 'opacity-75'
+                        }`}
+                      />
+                    )}
                     {!isDesktop && (
                       <video
                         id={`mobile-video-${project.id}`}
                         src={project.teaserUrl}
-                        poster={getPoster(project)}
+                        poster={posterUrl || undefined}
                         muted
                         loop
                         playsInline
-                        onPlaying={() => setMobilePlayingMap(prev => ({ ...prev, [project.id]: true }))}
+                        onLoadedMetadata={(e) => {
+                          const el = e.currentTarget;
+                          const saved = teaserPositionsRef.current[project.id] ?? 0;
+                          if (saved > 0.05) {
+                            const target =
+                              Number.isFinite(el.duration) && el.duration > 0
+                                ? Math.min(saved, Math.max(0, el.duration - 0.05))
+                                : saved;
+                            if (target > 0.05 && Math.abs(el.currentTime - target) > 0.15) {
+                              el.dataset.pendingSeek = '1';
+                              el.currentTime = target;
+                            }
+                          }
+                        }}
+                        onSeeked={(e) => {
+                          const el = e.currentTarget;
+                          delete el.dataset.pendingSeek;
+                          if (isCurrent && !selectedProject && !isTabHidden && (activeCategory === 'Selected' || isAboutOpen)) {
+                            el.play().catch(() => {});
+                          }
+                          setMobilePlayingMap(prev => ({ ...prev, [project.id]: true }));
+                        }}
+                        onPlaying={(e) => {
+                          if (e.currentTarget.dataset.pendingSeek === '1') return;
+                          setMobilePlayingMap(prev => ({ ...prev, [project.id]: true }));
+                        }}
+                        onTimeUpdate={(e) => {
+                          const el = e.currentTarget;
+                          if (
+                            el.dataset.pendingSeek !== '1' &&
+                            el.readyState >= 1 &&
+                            el.currentTime > 0 &&
+                            !Number.isNaN(el.currentTime)
+                          ) {
+                            teaserPositionsRef.current[project.id] = el.currentTime;
+                          }
+                        }}
+                        onPause={(e) => {
+                          const el = e.currentTarget;
+                          if (
+                            el.dataset.pendingSeek !== '1' &&
+                            el.readyState >= 1 &&
+                            el.currentTime > 0 &&
+                            !Number.isNaN(el.currentTime)
+                          ) {
+                            teaserPositionsRef.current[project.id] = el.currentTime;
+                          }
+                        }}
                         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
                           isPlaying ? 'opacity-75' : 'opacity-0'
                         }`}
                       />
                     )}
                     <div className='absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/40 pointer-events-none' />
-                    <Link
-                      to={`/work/${project.id}`}
-                      state={{ from: '/' }}
-                      className={`absolute inset-0 flex flex-col items-center justify-end px-8 pb-16 sm:pb-20 text-inherit no-underline focus:outline-none focus:ring-1 focus:ring-ink/40 transition-opacity duration-300 ${
-                        isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
-                      }`}
-                      aria-label={`View project: ${project.name}`}
-                    >
-                      <p className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold opacity-60 mb-1'>{project.client}</p>
-                      <h2 className='text-[15.6px] sm:text-[17px] leading-[22px] font-main font-normal text-center text-ink'>
-                        {project.name}
-                      </h2>
-                    </Link>
+                    {project.previewOnly ? (
+                      <div
+                        tabIndex={isCurrent && !isAboutOpen ? 0 : -1}
+                        onClick={(e) => e.preventDefault()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                          }
+                        }}
+                        className={`absolute inset-0 flex flex-col items-center justify-end px-8 pb-16 sm:pb-20 text-inherit cursor-default focus:outline-none focus:ring-1 focus:ring-ink/40 transition-opacity duration-300 ${
+                          isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                        }`}
+                        aria-label={`${project.name} for ${project.client} (coming soon)`}
+                      >
+                        {mobileLabelContent}
+                      </div>
+                    ) : (
+                      <Link
+                        to={`/work/${project.id}`}
+                        state={{ from: '/' }}
+                        className={`absolute inset-0 flex flex-col items-center justify-end px-8 pb-16 sm:pb-20 text-inherit no-underline focus:outline-none focus:ring-1 focus:ring-ink/40 transition-opacity duration-300 ${
+                          isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                        }`}
+                        aria-label={`View project: ${project.name}`}
+                      >
+                        {mobileLabelContent}
+                      </Link>
+                    )}
                   </div>
                 );
               })}
@@ -1769,6 +2072,7 @@ function MainView() {
                   zIndex={isCurrent ? 3 : 2}
                   shouldPlay={!selectedProject && !isTabHidden}
                   latestPreviewIdRef={latestPreviewIdRef}
+                  teaserPositionsRef={teaserPositionsRef}
                   onFirstFrame={handleFirstFrame}
                   registerVideoRef={registerPoolVideoRef}
                 />

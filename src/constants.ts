@@ -3,6 +3,7 @@ import { Project } from './types';
 export const SELECTED_PROJECT_ORDER: string[] = [
   'this-is-home',
   'into-the-heat',
+  'nurses-see-it-all',
   'farm-to-table',
   'for-her',
   'bliss',
@@ -12,6 +13,7 @@ export const SELECTED_PROJECT_ORDER: string[] = [
 export const ARCHIVE_PROJECT_ORDER: string[] = [
   'this-is-home',
   'into-the-heat',
+  'nurses-see-it-all',
   'farm-to-table',
   'for-her',
   'bliss',
@@ -102,6 +104,16 @@ Sound: Adrian Bellaire
 Colourist: Clinton Homouth
 Colour House: Artjail
 VFX: Zee Khan`,
+  },
+  {
+    id: 'nurses-see-it-all',
+    name: 'Nurses See It All',
+    client: 'BCNU',
+    tags: ['Selected', 'Archive'],
+    videoUrl: '',
+    teaserUrl: 'https://janikrai.b-cdn.net/Teasers/BCNU_Clip.mp4',
+    ratio: 'contain',
+    previewOnly: true,
   },
   {
     id: 'farm-to-table',
