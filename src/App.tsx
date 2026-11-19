@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useNavigate, useParams, useLocation, Routes, Route, Navigate, Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
 import { PROJECTS, CATEGORIES, SELECTED_PROJECT_ORDER, ARCHIVE_PROJECT_ORDER } from './constants';
 import { Project, Category } from './types';
-import { getRouteMetadata, SITE_NAME } from './seo';
+import { getRouteMetadata, syncDocumentMetadata } from './seo';
 
 const StrikeButton = forwardRef<HTMLButtonElement, { children: React.ReactNode, onClick?: () => void, className?: string, disabled?: boolean, [key: string]: any }>(
   ({ children, onClick, className, disabled, ...rest }, ref) => {
@@ -23,7 +22,8 @@ const StrikeButton = forwardRef<HTMLButtonElement, { children: React.ReactNode, 
 );
 StrikeButton.displayName = 'StrikeButton';
 
-const getPoster = (project: Project) => project.stills?.[0] ?? '';
+const getTeaserPoster = (project: Project) => project.teaserPosterUrl || project.stills?.[0] || '';
+const getProjectPoster = (project: Project) => project.stills?.[0] ?? '';
 
 const MAX_CACHED_VIDEOS = 16;
 
@@ -43,6 +43,7 @@ function PooledPreviewMedia({
   latestPreviewIdRef,
   teaserPositionsRef,
   onFirstFrame,
+  onVideoError,
   registerVideoRef,
 }: {
   key?: React.Key;
@@ -54,6 +55,7 @@ function PooledPreviewMedia({
   latestPreviewIdRef: React.MutableRefObject<string>;
   teaserPositionsRef: React.MutableRefObject<Record<string, number>>;
   onFirstFrame: (projectId: string) => void;
+  onVideoError?: (projectId: string) => void;
   registerVideoRef: (projectId: string, el: HTMLVideoElement | null) => void;
 }) {
   const videoElRef = useRef<HTMLVideoElement | null>(null);
@@ -160,11 +162,13 @@ function PooledPreviewMedia({
       }
 
       if (pendingSeekRef.current === null) {
-        if (el.paused) {
-          el.play().catch(() => {});
-        }
-        if (el.readyState >= 2) {
-          reportFirstFrame();
+        if (!(savedTime > 0.05 && el.readyState === 0)) {
+          if (el.paused) {
+            el.play().catch(() => {});
+          }
+          if (el.readyState >= 2) {
+            reportFirstFrame();
+          }
         }
       }
     } else {
@@ -308,6 +312,9 @@ function PooledPreviewMedia({
         if (shouldPlay && el.paused) {
           el.play().catch(() => {});
         }
+        if (el.readyState >= 2) {
+          scheduleFrameReveal(el);
+        }
       }}
       onPlaying={(e) => {
         if (pendingSeekRef.current !== null) {
@@ -340,6 +347,19 @@ function PooledPreviewMedia({
         ) {
           teaserPositionsRef.current[project.id] = el.currentTime;
         }
+      }}
+      onError={() => {
+        if (loadedTimerRef.current) {
+          clearTimeout(loadedTimerRef.current);
+          loadedTimerRef.current = null;
+        }
+        if (seekSafetyTimerRef.current) {
+          clearTimeout(seekSafetyTimerRef.current);
+          seekSafetyTimerRef.current = null;
+        }
+        pendingSeekRef.current = null;
+        reportedRef.current = false;
+        onVideoError?.(project.id);
       }}
       style={{
         position: 'absolute',
@@ -417,6 +437,9 @@ function ArchiveTile({
       }
       if (!pendingSeekRef.current) {
         video.play().catch(() => {});
+        if (video.readyState >= 2) {
+          setIsVideoReady(true);
+        }
       }
     } else {
       if (!pendingSeekRef.current && video.readyState >= 1 && video.currentTime > 0 && !Number.isNaN(video.currentTime)) {
@@ -426,7 +449,7 @@ function ArchiveTile({
     }
   }, [isInView, isOverlayOpen, isTabHidden, isDesktop, project.id, project.teaserUrl, teaserPositionsRef]);
 
-  const posterUrl = getPoster(project);
+  const posterUrl = getTeaserPoster(project);
   const tileContent = (
     <>
       {posterUrl && (
@@ -440,7 +463,6 @@ function ArchiveTile({
       {!isDesktop && (
         <video
           ref={videoRef}
-          poster={posterUrl || undefined}
           muted
           loop
           playsInline
@@ -484,6 +506,10 @@ function ArchiveTile({
             if (!pendingSeekRef.current && el.readyState >= 1 && el.currentTime > 0 && !Number.isNaN(el.currentTime)) {
               teaserPositionsRef.current[project.id] = el.currentTime;
             }
+          }}
+          onError={() => {
+            pendingSeekRef.current = false;
+            setIsVideoReady(false);
           }}
           className='absolute inset-0 w-full h-full object-cover transition-opacity duration-700 pointer-events-none'
           style={{ opacity: isVideoReady ? 1 : 0 }}
@@ -578,6 +604,7 @@ function MainView() {
   const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
   const [mobilePlayingMap, setMobilePlayingMap] = useState<Record<string, boolean>>({});
   const [hasVideoError, setHasVideoError] = useState(false);
+  const [hasPlayerFirstFrame, setHasPlayerFirstFrame] = useState(false);
   const [isBioExpanded, setIsBioExpanded] = useState(false);
 
   const [isDesktop, setIsDesktop] = useState(() =>
@@ -635,7 +662,19 @@ function MainView() {
     () => (matchedProject && !matchedProject.previewOnly ? matchedProject : null),
     [matchedProject]
   );
+  const selectedProjectRef = useRef<Project | null>(selectedProject);
+  selectedProjectRef.current = selectedProject;
+  const [isTeaserReleasedForPlayer, setIsTeaserReleasedForPlayer] = useState<boolean>(() =>
+    Boolean(selectedProject)
+  );
+  const isTeaserReleased = isTeaserReleasedForPlayer && Boolean(selectedProject);
   const isOverlayOpen = Boolean(selectedProject || isAboutOpen);
+
+  useEffect(() => {
+    if (!selectedProject) {
+      setIsTeaserReleasedForPlayer(false);
+    }
+  }, [selectedProject]);
 
   const filteredProjects = useMemo(() => {
     const order = activeCategory === 'Selected' ? SELECTED_PROJECT_ORDER : ARCHIVE_PROJECT_ORDER;
@@ -782,11 +821,17 @@ function MainView() {
   const latestPreviewIdRef = useRef<string>(PROJECTS[0].id);
   const teaserPositionsRef = useRef<Record<string, number>>({});
   const lastTouchTimeRef = useRef<number>(0);
+  const hoverIntentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const poolVideoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const [loadedPosters, setLoadedPosters] = useState<Set<string>>(() => new Set());
-  const [videoPool, setVideoPool] = useState<PreviewPoolEntry[]>(() => [
-    { project: PROJECTS[0], hasFirstFrame: false },
-  ]);
+  const [videoPool, setVideoPool] = useState<PreviewPoolEntry[]>(() =>
+    selectedProject ? [] : [{ project: PROJECTS[0], hasFirstFrame: false }]
+  );
+  const videoPoolRef = useRef<PreviewPoolEntry[]>(videoPool);
+  videoPoolRef.current = videoPool;
+  const [activatedMobileIds, setActivatedMobileIds] = useState<Set<string>>(() =>
+    projectId ? new Set() : new Set([PROJECTS[0].id])
+  );
   const [lastFilledProject, setLastFilledProject] = useState<Project>(PROJECTS[0]);
 
   const registerPoolVideoRef = useCallback((id: string, el: HTMLVideoElement | null) => {
@@ -821,6 +866,20 @@ function MainView() {
     });
   }, []);
 
+  const handleVideoError = useCallback((projectId: string) => {
+    setVideoPool((prev) => {
+      let changed = false;
+      const next = prev.map((entry) => {
+        if (entry.project.id === projectId && entry.hasFirstFrame) {
+          changed = true;
+          return { ...entry, hasFirstFrame: false };
+        }
+        return entry;
+      });
+      return changed ? next : prev;
+    });
+  }, []);
+
   // Track pointer hover capability dynamically (supports desktop mice/trackpads and tablets with hover input)
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
@@ -838,9 +897,9 @@ function MainView() {
     };
   }, []);
 
-  // Preload project posters on desktop/tablet so switching shows each poster immediately
+  // Preload project posters on desktop/tablet only when background teasers are active
   useEffect(() => {
-    if (!isDesktop || typeof Image === 'undefined') return;
+    if (!isDesktop || isTeaserReleased || typeof Image === 'undefined') return;
     let cancelled = false;
 
     const orderedIds = Array.from(new Set([...SELECTED_PROJECT_ORDER, ...ARCHIVE_PROJECT_ORDER]));
@@ -849,7 +908,7 @@ function MainView() {
       .filter((p): p is Project => Boolean(p));
 
     orderedProjects.forEach((project) => {
-      const url = getPoster(project);
+      const url = getTeaserPoster(project);
       if (!url) return;
       const img = new Image();
       img.src = url;
@@ -876,13 +935,27 @@ function MainView() {
     return () => {
       cancelled = true;
     };
-  }, [isDesktop, markPosterLoaded]);
+  }, [isDesktop, isTeaserReleased, markPosterLoaded]);
 
-  // Immediately switch preview on desktop/tablet hover with latest-hover-wins semantics & LRU caching
+  useEffect(() => {
+    return () => {
+      if (hoverIntentTimerRef.current) {
+        clearTimeout(hoverIntentTimerRef.current);
+        hoverIntentTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // Immediately update poster/title on hover, while gating uncached video downloads on brief settle intent
   const activatePreview = useCallback(
     (project: Project) => {
       latestPreviewIdRef.current = project.id;
       setActiveTeaser((prev) => (prev.id === project.id ? prev : project));
+
+      if (hoverIntentTimerRef.current) {
+        clearTimeout(hoverIntentTimerRef.current);
+        hoverIntentTimerRef.current = null;
+      }
 
       (Object.entries(poolVideoRefs.current) as Array<[string, HTMLVideoElement | null]>).forEach(([id, el]) => {
         if (!el) return;
@@ -900,38 +973,83 @@ function MainView() {
         }
       });
 
-      setVideoPool((prev) => {
-        const existing = prev.find((item) => item.project.id === project.id);
-        const retained = prev.filter(
-          (item) => item.project.id !== project.id && item.hasFirstFrame
-        );
-        const nextEntry: PreviewPoolEntry = existing
-          ? existing
-          : { project, hasFirstFrame: false };
-        const next = [...retained, nextEntry];
-        if (next.length > MAX_CACHED_VIDEOS) {
-          return next.slice(next.length - MAX_CACHED_VIDEOS);
-        }
-        return next;
-      });
+      const isAlreadyPooled = videoPoolRef.current.some((item) => item.project.id === project.id);
+      if (isAlreadyPooled || isImageTeaser(project.teaserUrl || '')) {
+        setVideoPool((prev) => {
+          const existing = prev.find((item) => item.project.id === project.id);
+          const retained = prev.filter(
+            (item) => item.project.id !== project.id && item.hasFirstFrame
+          );
+          const nextEntry: PreviewPoolEntry = existing
+            ? existing
+            : { project, hasFirstFrame: false };
+          const next = [...retained, nextEntry];
+          if (next.length > MAX_CACHED_VIDEOS) {
+            return next.slice(next.length - MAX_CACHED_VIDEOS);
+          }
+          return next;
+        });
+        return;
+      }
+
+      hoverIntentTimerRef.current = setTimeout(() => {
+        hoverIntentTimerRef.current = null;
+        if (latestPreviewIdRef.current !== project.id || selectedProject) return;
+        setVideoPool((prev) => {
+          const existing = prev.find((item) => item.project.id === project.id);
+          const retained = prev.filter(
+            (item) => item.project.id !== project.id && item.hasFirstFrame
+          );
+          const nextEntry: PreviewPoolEntry = existing
+            ? existing
+            : { project, hasFirstFrame: false };
+          const next = [...retained, nextEntry];
+          if (next.length > MAX_CACHED_VIDEOS) {
+            return next.slice(next.length - MAX_CACHED_VIDEOS);
+          }
+          return next;
+        });
+      }, 160);
     },
     [selectedProject, isTabHidden]
   );
 
-  // Keep video pool synchronized if activeTeaser changes outside hover (e.g., viewport resize)
+  const activeTeaserRef = useRef<Project>(activeTeaser);
+  activeTeaserRef.current = activeTeaser;
+
+  // Clear decoded-frame flags once pooled teaser videos unmount behind a covered full-film player
   useEffect(() => {
-    if (!isDesktop) return;
-    latestPreviewIdRef.current = activeTeaser.id;
+    if (!isTeaserReleased) return;
+    setVideoPool((prev) =>
+      prev.some((entry) => entry.hasFirstFrame)
+        ? prev.map((entry) =>
+            entry.hasFirstFrame ? { ...entry, hasFirstFrame: false } : entry
+          )
+        : prev
+    );
+  }, [isTeaserReleased]);
+
+  // Keep video pool synchronized when returning to homepage/About without a covered player open
+  useEffect(() => {
+    if (!isDesktop || isTeaserReleased) {
+      if (hoverIntentTimerRef.current) {
+        clearTimeout(hoverIntentTimerRef.current);
+        hoverIntentTimerRef.current = null;
+      }
+      return;
+    }
+    const target = activeTeaserRef.current;
+    latestPreviewIdRef.current = target.id;
     setVideoPool((prev) => {
-      if (prev.some((item) => item.project.id === activeTeaser.id)) return prev;
+      if (prev.some((item) => item.project.id === target.id)) return prev;
       const retained = prev.filter((item) => item.hasFirstFrame);
-      const next = [...retained, { project: activeTeaser, hasFirstFrame: false }];
+      const next = [...retained, { project: target, hasFirstFrame: false }];
       if (next.length > MAX_CACHED_VIDEOS) {
         return next.slice(next.length - MAX_CACHED_VIDEOS);
       }
       return next;
     });
-  }, [isDesktop, activeTeaser]);
+  }, [isDesktop, isTeaserReleased]);
 
   // Clear hoveredProject if switching back to Selected while hovering an Archive-only row
   useEffect(() => {
@@ -940,7 +1058,7 @@ function MainView() {
     }
   }, [activeCategory, hoveredProject]);
 
-  const activePosterUrl = getPoster(activeTeaser);
+  const activePosterUrl = getTeaserPoster(activeTeaser);
   const isActivePosterReady = Boolean(activePosterUrl && loadedPosters.has(activePosterUrl));
   const activePoolEntry = videoPool.find((item) => item.project.id === activeTeaser.id);
   const isActiveVideoReady = Boolean(activePoolEntry?.hasFirstFrame);
@@ -951,6 +1069,20 @@ function MainView() {
       setLastFilledProject((prev) => (prev.id === activeTeaser.id ? prev : activeTeaser));
     }
   }, [isActivePreviewReady, activeTeaser]);
+
+  // Activate only the currently viewed mobile card when browsing mobile homepage/About
+  useEffect(() => {
+    if (isDesktop || selectedProject) return;
+    if (activeCategory !== 'Selected' && !isAboutOpen) return;
+    const activeMobileProject = filteredProjects[mobileIndex];
+    if (!activeMobileProject) return;
+    setActivatedMobileIds((prev) => {
+      if (prev.has(activeMobileProject.id)) return prev;
+      const next = new Set(prev);
+      next.add(activeMobileProject.id);
+      return next;
+    });
+  }, [isDesktop, selectedProject, activeCategory, isAboutOpen, filteredProjects, mobileIndex]);
 
   // Mobile video playback for active swipe index; keep playing behind About
   useEffect(() => {
@@ -986,7 +1118,7 @@ function MainView() {
         }
       }
     });
-  }, [mobileIndex, filteredProjects, isDesktop, selectedProject, isTabHidden, activeCategory, isAboutOpen]);
+  }, [mobileIndex, filteredProjects, isDesktop, selectedProject, isTabHidden, activeCategory, isAboutOpen, activatedMobileIds]);
 
   // On mobile, keep activeTeaser in sync with the last active swipe preview
   useEffect(() => {
@@ -1039,9 +1171,10 @@ function MainView() {
     };
   }, [selectedProject?.id]);
 
-  // When switching project in full-film player: unmuted autoplay with fallback
+  // When switching project in full-film player: unmuted autoplay with fallback without redundant aborting load()
   useEffect(() => {
     setHasVideoError(false);
+    setHasPlayerFirstFrame(false);
     setIsCreditsOpen(false);
     setIsStillsOpen(false);
     preCreditsVolume.current = 1;
@@ -1053,12 +1186,20 @@ function MainView() {
     const video = videoRef.current;
     if (!selectedProject || !video) return;
 
-    video.pause();
-    video.currentTime = 0;
     video.volume = savedVolumeRef.current > 0 ? savedVolumeRef.current : 1;
     video.muted = false;
     setIsMuted(false);
-    video.load();
+
+    let cancelled = false;
+    const markFrameReady = () => {
+      if (!cancelled) setHasPlayerFirstFrame(true);
+    };
+    const vWithRvfc = video as HTMLVideoElement & {
+      requestVideoFrameCallback?: (cb: () => void) => number;
+    };
+    if (typeof vWithRvfc.requestVideoFrameCallback === 'function') {
+      vWithRvfc.requestVideoFrameCallback(markFrameReady);
+    }
 
     const playPromise = video.play();
     if (playPromise !== undefined) {
@@ -1083,8 +1224,8 @@ function MainView() {
     }
 
     return () => {
+      cancelled = true;
       video.pause();
-      video.currentTime = 0;
     };
   }, [selectedProject?.id]);
 
@@ -1339,7 +1480,6 @@ function MainView() {
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.muted = true;
-      videoRef.current.currentTime = 0;
     }
     setIsCreditsOpen(false);
     setIsStillsOpen(false);
@@ -1363,7 +1503,6 @@ function MainView() {
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.muted = true;
-      videoRef.current.currentTime = 0;
     }
     setIsCreditsOpen(false);
     setIsStillsOpen(false);
@@ -1562,46 +1701,30 @@ function MainView() {
     }
   }, [isCreditsOpen]);
 
+  const routeMeta = useMemo(
+    () =>
+      getRouteMetadata(
+        selectedProject
+          ? `/work/${selectedProject.id}`
+          : location.pathname === '/archive'
+          ? '/archive'
+          : isAboutOpen
+          ? '/info'
+          : '/'
+      ),
+    [selectedProject, location.pathname, isAboutOpen]
+  );
+
+  useEffect(() => {
+    syncDocumentMetadata(routeMeta);
+  }, [routeMeta]);
+
   if (projectId && !selectedProject) {
     return <Navigate to={cameFrom === '/archive' ? '/archive' : '/'} replace />;
   }
 
-  const routeMeta = getRouteMetadata(
-    selectedProject
-      ? `/work/${selectedProject.id}`
-      : location.pathname === '/archive'
-      ? '/archive'
-      : isAboutOpen
-      ? '/info'
-      : '/'
-  );
-
   return (
     <div className="relative min-h-screen w-full bg-bg text-ink selection:bg-ink selection:text-bg">
-      <Helmet>
-        <title>{routeMeta.title}</title>
-        <meta name="description" content={routeMeta.description} />
-        <link rel="canonical" href={routeMeta.canonicalUrl} />
-        <meta property="og:site_name" content={SITE_NAME} />
-        <meta property="og:type" content={routeMeta.ogType} />
-        <meta property="og:url" content={routeMeta.canonicalUrl} />
-        <meta property="og:title" content={routeMeta.title} />
-        <meta property="og:description" content={routeMeta.description} />
-        <meta property="og:image" content={routeMeta.imageUrl} />
-        <meta property="og:image:secure_url" content={routeMeta.imageUrl} />
-        <meta property="og:image:alt" content={routeMeta.imageAlt} />
-        {routeMeta.imageType && <meta property="og:image:type" content={routeMeta.imageType} />}
-        {routeMeta.imageWidth && <meta property="og:image:width" content={String(routeMeta.imageWidth)} />}
-        {routeMeta.imageHeight && <meta property="og:image:height" content={String(routeMeta.imageHeight)} />}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={routeMeta.title} />
-        <meta name="twitter:description" content={routeMeta.description} />
-        <meta name="twitter:image" content={routeMeta.imageUrl} />
-        <meta name="twitter:image:alt" content={routeMeta.imageAlt} />
-        {routeMeta.jsonLd && (
-          <script type="application/ld+json">{JSON.stringify(routeMeta.jsonLd)}</script>
-        )}
-      </Helmet>
 
       {/* Navigation */}
       <nav
@@ -1657,7 +1780,7 @@ function MainView() {
             }
           }}
         >
-          <div className="flex items-center justify-center gap-20 sm:gap-28 md:gap-36 lg:gap-48 pointer-events-none">
+          <div className="flex items-center justify-center gap-20 sm:gap-28 md:gap-[9.9rem] lg:gap-[13.2rem] pointer-events-none">
             {/* Left: Janik (Outer motion.div handles page outward/inward transition; Inner span handles hover) */}
             <motion.div
               animate={isTitleSplit && !shouldReduceMotion ? { x: '-60vw' } : { x: 0 }}
@@ -1708,7 +1831,7 @@ function MainView() {
       >
         {/* Desktop Project List (Aligned exactly beneath 'Selected', +2px Typography) */}
         <div
-          className="hidden md:block w-full max-w-2xl text-left md:pl-[138px]"
+          className="hidden md:block w-full max-w-2xl text-left md:pl-[127px]"
           style={{ paddingLeft: selectedLeft ? `${selectedLeft}px` : undefined }}
         >
           <div className={`space-y-0 transition-opacity duration-300 ${isAboutOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
@@ -1880,7 +2003,7 @@ function MainView() {
               {filteredProjects.map((project, i) => {
                 const isCurrent = i === mobileIndex;
                 const isPlaying = mobilePlayingMap[project.id];
-                const posterUrl = getPoster(project);
+                const posterUrl = getTeaserPoster(project);
                 const mobileLabelContent = (
                   <>
                     <p className='text-[10.5px] leading-[12px] uppercase tracking-[0.05em] font-heading font-semibold opacity-60 mb-1'>
@@ -1913,14 +2036,14 @@ function MainView() {
                         }`}
                       />
                     )}
-                    {!isDesktop && (
+                    {!isDesktop && !selectedProject && (
                       <video
                         id={`mobile-video-${project.id}`}
-                        src={project.teaserUrl}
-                        poster={posterUrl || undefined}
+                        src={activatedMobileIds.has(project.id) ? project.teaserUrl : undefined}
                         muted
                         loop
                         playsInline
+                        preload={isCurrent ? 'auto' : 'none'}
                         onLoadedMetadata={(e) => {
                           const el = e.currentTarget;
                           const saved = teaserPositionsRef.current[project.id] ?? 0;
@@ -1968,6 +2091,10 @@ function MainView() {
                           ) {
                             teaserPositionsRef.current[project.id] = el.currentTime;
                           }
+                        }}
+                        onError={(e) => {
+                          delete e.currentTarget.dataset.pendingSeek;
+                          setMobilePlayingMap(prev => ({ ...prev, [project.id]: false }));
                         }}
                         className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${
                           isPlaying ? 'opacity-75' : 'opacity-0'
@@ -2031,9 +2158,9 @@ function MainView() {
         >
           <div className="relative w-full h-full opacity-75">
             {/* Retain previous filled poster underneath only while a new project's poster & video are both still loading */}
-            {!isActivePreviewReady && lastFilledProject.id !== activeTeaser.id && getPoster(lastFilledProject) && (
+            {!isActivePreviewReady && lastFilledProject.id !== activeTeaser.id && getTeaserPoster(lastFilledProject) && (
               <img
-                src={getPoster(lastFilledProject)}
+                src={getTeaserPoster(lastFilledProject)}
                 alt=""
                 aria-hidden="true"
                 className="absolute inset-0 w-full h-full object-cover select-none"
@@ -2041,13 +2168,18 @@ function MainView() {
               />
             )}
 
-            {/* Active project's poster: shown immediately on hover until video/GIF first frame is ready */}
-            {activePosterUrl && (
+            {/* Active project's teaser loading poster: shown until video/GIF first frame is ready; hidden once ready */}
+            {activePosterUrl && !isActiveVideoReady && (
               <img
                 key={activePosterUrl}
                 src={activePosterUrl}
                 alt=""
                 aria-hidden="true"
+                ref={(img) => {
+                  if (img && img.complete && img.naturalWidth > 0 && !loadedPosters.has(activePosterUrl)) {
+                    markPosterLoaded(activePosterUrl);
+                  }
+                }}
                 onLoad={() => markPosterLoaded(activePosterUrl)}
                 className="absolute inset-0 w-full h-full object-cover select-none"
                 style={{
@@ -2057,8 +2189,8 @@ function MainView() {
               />
             )}
 
-            {/* Pooled cached preview videos/GIFs (latest hovered plays & displays immediately once first frame is ready) */}
-            {videoPool.map((slot) => {
+            {/* Pooled cached preview videos/GIFs: kept playing during opening wipe until covered, released on completion, restored on close */}
+            {!isTeaserReleased && videoPool.map((slot) => {
               const isCurrent = slot.project.id === activeTeaser.id;
               const isFallback =
                 !isCurrent && !isActivePreviewReady && slot.project.id === lastFilledProject.id;
@@ -2070,10 +2202,11 @@ function MainView() {
                   isCurrent={isCurrent}
                   isVisible={isVisible}
                   zIndex={isCurrent ? 3 : 2}
-                  shouldPlay={!selectedProject && !isTabHidden}
+                  shouldPlay={!isTeaserReleased && !isTabHidden}
                   latestPreviewIdRef={latestPreviewIdRef}
                   teaserPositionsRef={teaserPositionsRef}
                   onFirstFrame={handleFirstFrame}
+                  onVideoError={handleVideoError}
                   registerVideoRef={registerPoolVideoRef}
                 />
               );
@@ -2138,24 +2271,32 @@ function MainView() {
                 setIsPlaying(false);
               }
             }}
+            onAnimationComplete={() => {
+              if (selectedProjectRef.current) {
+                setIsTeaserReleasedForPlayer(true);
+              }
+            }}
             className={`fixed inset-0 z-[60] flex items-center justify-center bg-black overflow-hidden select-none ${
               !isControlsVisible && isPlaying ? 'cursor-none' : 'cursor-default'
             }`}
           >
-            {/* Full-Viewport Video Player (Preserves aspect ratio with letterboxing, never cropped) */}
+            {/* Full-Viewport Video Player (Displays still poster until first decoded video frame paints, avoiding empty black frame) */}
             <div className="absolute inset-0 flex items-center justify-center w-full h-full pointer-events-none">
               <video
                 ref={videoRef}
                 key={selectedProject.id}
                 src={selectedProject.videoUrl}
-                poster={getPoster(selectedProject)}
+                poster={getProjectPoster(selectedProject)}
                 playsInline
                 loop
                 preload="auto"
                 onPlay={() => setIsPlaying(true)}
-                onPlaying={() => {
+                onPlaying={(e) => {
                   setIsPlaying(true);
                   setIsBuffering(false);
+                  if (e.currentTarget.readyState >= 2) {
+                    setHasPlayerFirstFrame(true);
+                  }
                   startInactivityTimer();
                 }}
                 onWaiting={() => {
@@ -2198,6 +2339,14 @@ function MainView() {
                 }}
                 className={`w-full h-full ${isFullscreen ? 'object-contain' : 'object-cover'} pointer-events-none select-none bg-black`}
               />
+              {getProjectPoster(selectedProject) && !hasPlayerFirstFrame && !hasVideoError && (
+                <img
+                  src={getProjectPoster(selectedProject)}
+                  alt=""
+                  aria-hidden="true"
+                  className={`absolute inset-0 w-full h-full ${isFullscreen ? 'object-contain' : 'object-cover'} pointer-events-none select-none`}
+                />
+              )}
             </div>
 
             {/* Blocked Autoplay / Video Error Fallback */}
@@ -2284,12 +2433,6 @@ function MainView() {
 
               {/* Project Details: Fixed Positions (Position 1: Info, Position 2: Stills) */}
               <div className="flex items-baseline gap-6 sm:gap-8 md:gap-10 text-ink">
-                {selectedProject.year && (
-                  <span className="font-main text-[15.6px] leading-[22px] text-ink opacity-75 hidden lg:inline">
-                    {selectedProject.year}
-                  </span>
-                )}
-
                 {/* Position 1: Info Position (Video playing -> Info) */}
                 <div className="w-[48px] text-right inline-flex justify-end">
                   <button
@@ -2770,12 +2913,6 @@ function MainView() {
 
                     {/* Project Details: Fixed Positions (Position 1: Info, Position 2: Video) */}
                     <div className="flex items-baseline gap-6 sm:gap-8 md:gap-10 text-neutral-900 ml-auto md:ml-0">
-                      {selectedProject.year && (
-                        <span className="font-main text-[15.6px] leading-[22px] hidden lg:inline opacity-75">
-                          {selectedProject.year}
-                        </span>
-                      )}
-
                       {/* Position 1: Info Position (Stills open -> Info: switches directly to Project Info) */}
                       <div className="w-[44px] sm:w-[48px] text-right inline-flex justify-end">
                         <button
@@ -2886,12 +3023,6 @@ function MainView() {
 
                     {/* Project Details: Fixed Positions (Position 1: Video, Position 2: Stills) */}
                     <div className="flex items-baseline gap-6 sm:gap-8 md:gap-10 text-neutral-900 ml-auto md:ml-0">
-                      {selectedProject.year && (
-                        <span className="font-main text-[15.6px] leading-[22px] hidden lg:inline opacity-75">
-                          {selectedProject.year}
-                        </span>
-                      )}
-
                       {/* Position 1: Info Position (Project Info open -> Video: returns to film without restarting) */}
                       <div className="w-[44px] sm:w-[48px] text-right inline-flex justify-end">
                         <button

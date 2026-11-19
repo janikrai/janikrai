@@ -5,6 +5,7 @@ export interface Project {
   tags: string[];
   videoUrl: string;
   teaserUrl: string;
+  teaserPosterUrl?: string;
   ratio: 'contain' | 'cover';
   previewOnly?: boolean;
   laurelUrls?: string[];
