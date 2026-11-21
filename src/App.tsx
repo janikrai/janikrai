@@ -3178,10 +3178,10 @@ function MainView() {
               className="w-full min-h-screen p-5 md:p-6 pt-20 md:pt-24 pb-16 flex flex-col justify-between flex-1 relative"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="w-full flex flex-col lg:flex-row items-start justify-start">
-                {/* Left Editorial Column - restored to left side */}
-                <div className="w-full max-w-xl min-w-0">
-                  {/* Mobile Headshot (centred horizontally within Info page content frame with equal space on both sides) */}
+              <div className="w-full flex flex-col items-start justify-start">
+                {/* Editorial Column on <lg; Shared Two-Column Grid on Desktop (lg+) */}
+                <div className="w-full max-w-xl lg:max-w-none lg:grid lg:grid-cols-[150px_minmax(0,36rem)] lg:gap-x-6 lg:items-start min-w-0">
+                  {/* Mobile & Tablet Headshot (<lg only, preserved verbatim) */}
                   <div className="lg:hidden mb-6 flex justify-center sm:justify-start w-full">
                     <img
                       src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
@@ -3191,8 +3191,18 @@ function MainView() {
                     />
                   </div>
 
-                  {/* Biography */}
-                  <div className="space-y-3.5">
+                  {/* Desktop Portrait (lg+ only, aligned in col 1 with Contact label) */}
+                  <div className="hidden lg:block lg:col-start-1 lg:row-start-1 w-[150px]">
+                    <img
+                      src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
+                      alt="Janik Rai"
+                      className="w-full aspect-[3/4] object-cover select-none"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+
+                  {/* Biography (col 2 on lg+, aligned with email address) */}
+                  <div className="space-y-3.5 lg:col-start-2 lg:row-start-1">
                     <p className="text-[15.6px] leading-[22px] text-neutral-800 font-main font-normal">
                       Janik Rai is a British-Canadian director with South Asian roots. His work balances striking imagery with a raw, human sensibility, combining cinematic composition with a sense of lived reality.
                     </p>
@@ -3222,9 +3232,9 @@ function MainView() {
                   </div>
 
                   {/* Metadata Sections: CONTACT, WORK, REPRESENTATION */}
-                  <div className="mt-12 md:mt-16 space-y-6 md:space-y-7">
+                  <div className="mt-12 md:mt-16 space-y-6 md:space-y-7 lg:contents">
                     {/* Contact */}
-                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
+                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] lg:col-span-2 lg:grid-cols-subgrid items-baseline gap-2 lg:gap-x-6 lg:gap-y-0 lg:mt-14">
                       <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-neutral-500 select-none">
                         Contact
                       </span>
@@ -3239,7 +3249,7 @@ function MainView() {
                     </div>
 
                     {/* Work */}
-                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
+                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] lg:col-span-2 lg:grid-cols-subgrid items-baseline gap-2 lg:gap-x-6 lg:gap-y-0 lg:mt-7">
                       <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-neutral-500 select-none">
                         Work
                       </span>
@@ -3264,7 +3274,7 @@ function MainView() {
                     </div>
 
                     {/* Representation */}
-                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] items-baseline gap-2">
+                    <div className="grid grid-cols-[115px_1fr] sm:grid-cols-[145px_1fr] lg:col-span-2 lg:grid-cols-subgrid items-baseline gap-2 lg:gap-x-6 lg:gap-y-0 lg:mt-7">
                       <span className="text-[10.5px] leading-[12px] font-heading font-semibold uppercase tracking-[0.05em] text-neutral-500 select-none">
                         Representation
                       </span>
@@ -3289,18 +3299,6 @@ function MainView() {
                         </a>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Right Column: Desktop Headshot - exactly preserved in current middle-right position and size */}
-                <div className="hidden lg:block absolute left-[calc(50%+160px)] xl:left-[calc(50%+180px)] top-20 md:top-24 flex-shrink-0">
-                  <div className="w-[220px] xl:w-[250px]">
-                    <img
-                      src="https://janikrai.b-cdn.net/Favicon/IMG_4092%20(1).jpg"
-                      alt="Janik Rai"
-                      className="w-full aspect-[3/4] object-cover select-none"
-                      referrerPolicy="no-referrer"
-                    />
                   </div>
                 </div>
               </div>
